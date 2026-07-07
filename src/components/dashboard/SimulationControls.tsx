@@ -34,7 +34,7 @@ export default function SimulationControls({ running, speed, onStart, onStop, on
       <select
         defaultValue=""
         onChange={e => {
-          if (e.target.value) onLoadPreset(e.target.value as any);
+          if (e.target.value) onLoadPreset(e.target.value as "empty" | "cpu-demo" | "memory-pressure" | "disk-frag" | "deadlock");
         }}
         className="bg-white/6 border border-white/10 rounded px-1.5 lg:px-2 py-1 text-[10px] lg:text-xs font-mono text-text-primary"
       >

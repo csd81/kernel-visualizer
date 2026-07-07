@@ -1,5 +1,4 @@
 import type { SimState } from "@/types/sim";
-import type { OutputLine } from "@/types/terminal";
 import { parseCommand } from "./terminal-parser";
 import { fork, kill } from "./scheduler";
 import { allocateFrames, freeProcessFrames } from "./memory";
@@ -9,7 +8,7 @@ import { addLine } from "./terminal-parser";
 export function processShellCommand(state: SimState, input: string): SimState {
   const { cmd, args } = parseCommand(input);
   let output = addLine(state.terminal.output, input, "input");
-  let next: SimState = { ...state, terminal: { ...state.terminal, output } };
+  const next: SimState = { ...state, terminal: { ...state.terminal, output } };
 
   switch (cmd) {
     case "help": {

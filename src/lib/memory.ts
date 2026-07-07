@@ -1,5 +1,4 @@
 import type { MemoryState, Frame } from "@/types/memory";
-import { createInitialMemoryState } from "./sim";
 
 export const TOTAL_FRAMES = 256;
 

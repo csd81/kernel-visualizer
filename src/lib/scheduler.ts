@@ -53,14 +53,14 @@ export function kill(state: SimState, pid: number): { state: SimState; message: 
   const proc = state.processes[idx];
   if (proc.state === "TERMINATED") return { state, message: `Error: PID ${pid} already terminated` };
   const processes = state.processes.map(p =>
-    p.pid === pid ? { ...p, state: "TERMINATED" as ProcessState } : p
+    p.pid === pid ? { ...p, state: "TERMINATED" as ProcessState, terminatedTick: state.tick } : p
   );
   return { state: { ...state, processes }, message: `PID ${pid} terminated` };
 }
 
 export function scheduleFcfs(state: SimState): SimState {
   let contextSwitches = state.stats.contextSwitches;
-  let history = [...state.history];
+  const history = [...state.history];
 
   const running = state.processes.find(p => p.state === "RUNNING");
   if (running) {
@@ -69,6 +69,7 @@ export function scheduleFcfs(state: SimState): SimState {
       const next = { ...p, remainingTicks: p.remainingTicks - 1, totalRunTicks: p.totalRunTicks + 1 };
       if (next.remainingTicks <= 0) {
         next.state = "TERMINATED";
+        next.terminatedTick = state.tick;
         history.push({ tick: state.tick, pid: next.pid, event: "terminated" });
       }
       return next;

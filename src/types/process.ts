@@ -22,4 +22,5 @@ export interface Process {
   pageTable: PageTableEntry[];
   holds: number[];
   waitsFor: number;
+  terminatedTick?: number;
 }

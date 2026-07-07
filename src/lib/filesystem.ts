@@ -1,5 +1,4 @@
 import type { DiskState, DiskBlock } from "@/types/filesystem";
-import { createInitialDiskState } from "./sim";
 
 export const BLOCK_SIZE = 512;
 export const TOTAL_INODES = 4;

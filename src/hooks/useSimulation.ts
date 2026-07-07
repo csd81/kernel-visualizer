@@ -8,6 +8,7 @@ import { scheduleFcfs } from "@/lib/scheduler";
 import { detectDeadlock } from "@/lib/deadlock";
 import { loadPreset, exportState } from "@/lib/presets";
 import type { SchedAlgorithm } from "@/types/sim";
+import { addLine } from "@/lib/terminal-parser";
 
 export function useSimulation() {
   const [state, setState] = useState<SimState>(createInitialState);
@@ -32,7 +33,6 @@ export function useSimulation() {
       // Deadlock detection
       const deadlocked = detectDeadlock(next.processes);
       if (deadlocked.length > 0 && prev.deadlockedPids.length === 0) {
-        const { addLine } = require("@/lib/terminal-parser");
         next.terminal.output = addLine(next.terminal.output, `⚠️ DEADLOCK DETECTED: PIDs [${deadlocked.join(", ")}]`, "warning");
       }
       next.deadlockedPids = deadlocked;
@@ -102,7 +102,7 @@ function applyCleanup(state: SimState): SimState {
     ...state,
     processes: state.processes.filter(p => {
       if (p.state === "TERMINATED") {
-        return state.tick - (p as any).terminatedTick < 3;
+        return p.terminatedTick === undefined || state.tick - p.terminatedTick < 3;
       }
       return true;
     }),
