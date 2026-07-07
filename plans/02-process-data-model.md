@@ -236,10 +236,10 @@ export default function SimulationProvider({ children }: { children: React.React
 Update `DashboardGrid.tsx` to wrap content in `<SimulationProvider>` and update all panels to use `useSimulation()` from context.
 
 ## Acceptance Criteria
-- [ ] Scheduler panel shows a table with 3 demo processes (PID 1, 2, 3)
-- [ ] Each row has a colored dot, state label, tick count, priority
-- [ ] Running the sim increments `tick:` in header but doesn't change states yet
-- [ ] Table is compact and readable at small font sizes
+- [x] Scheduler panel shows a table with 3 demo processes (PID 1, 2, 3)
+- [x] Each row has a colored dot, state label, tick count, priority
+- [x] Running the sim increments `tick:` in header but doesn't change states yet
+- [x] Table is compact and readable at small font sizes
 
 ## Files Touched
 - `src/types/process.ts` — Process type

@@ -248,13 +248,13 @@ export default function MemoryPanel() {
 Expose both from `SimulationContext` and `useSimulation`.
 
 ## Acceptance Criteria
-- [ ] Memory panel shows a 16×16 grid of dark gray frames
-- [ ] `alloc 1 8` → 8 frames turn to process PID 1's color
-- [ ] Free frames remain gray
-- [ ] Click a frame → detail panel shows frame ID, owner, page, offset
-- [ ] Stats update: used/total, largest free block, fragmentation %
-- [ ] `alloc 1 300` → error (out of memory)
-- [ ] `freeMem 1` → frames return to gray
+- [x] Memory panel shows a 16×16 grid of dark gray frames
+- [x] `alloc 1 8` → 8 frames turn to process PID 1's color
+- [x] Free frames remain gray
+- [x] Click a frame → detail panel shows frame ID, owner, page, offset
+- [x] Stats update: used/total, largest free block, fragmentation %
+- [x] `alloc 1 300` → error (out of memory)
+- [x] `freeMem 1` → frames return to gray
 
 ## Files Touched
 - `src/types/memory.ts` — Frame, MemoryState, PageTableEntry

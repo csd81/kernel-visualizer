@@ -119,12 +119,12 @@ Add the Gantt chart and CPU utilization below the queue lanes in `SchedulerPanel
 ```
 
 ## Acceptance Criteria
-- [ ] Gantt chart shows colored horizontal bars per PID
-- [ ] Each bar's width = duration in ticks * tickWidth
-- [ ] Hover over a bar shows tooltip with PID, duration, tick range
-- [ ] Auto-scrolls to follow the latest bar
-- [ ] CPU Util % updates every tick
-- [ ] Responsive: chart scrolls horizontally within the panel
+- [x] Gantt chart shows colored horizontal bars per PID
+- [x] Each bar's width = duration in ticks * tickWidth
+- [x] Hover over a bar shows tooltip with PID, duration, tick range
+- [x] Auto-scrolls to follow the latest bar
+- [x] CPU Util % updates every tick
+- [x] Responsive: chart scrolls horizontally within the panel
 
 ## Files Touched
 - `src/types/sim.ts` — HistoryEntry with duration

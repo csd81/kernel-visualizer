@@ -172,14 +172,14 @@ When in RR mode, show an SVG ring around the running process card:
 Show `"Context switches: N"` and current algorithm name in the scheduler panel header area.
 
 ## Acceptance Criteria
-- [ ] Dropdown switches between FCFS, RR, Priority
-- [ ] RR preempts after quantum expires, card moves back to READY
-- [ ] Priority mode picks highest-priority READY process
-- [ ] Quantum number input only appears in RR mode
-- [ ] `fork` via context creates a new process
-- [ ] `kill` via context terminates a process
-- [ ] Context switch counter increments on every switch
-- [ ] Quantum ring depletes visually on the running card
+- [x] Dropdown switches between FCFS, RR, Priority
+- [x] RR preempts after quantum expires, card moves back to READY
+- [x] Priority mode picks highest-priority READY process
+- [x] Quantum number input only appears in RR mode
+- [x] `fork` via context creates a new process
+- [x] `kill` via context terminates a process
+- [x] Context switch counter increments on every switch
+- [x] Quantum ring depletes visually on the running card
 
 ## Files Touched
 - `src/lib/scheduler.ts` — scheduleRr, schedulePriority, fork, kill

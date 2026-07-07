@@ -238,13 +238,13 @@ export interface SimStats {
 ```
 
 ## Acceptance Criteria
-- [ ] Play → processes cycle READY → RUNNING → TERMINATED
-- [ ] RUNNING lane shows the active process card (pulse glow)
-- [ ] READY lane shows waiting processes in FIFO order
-- [ ] TERMINATED card fades out and disappears after 3 ticks
-- [ ] Each state transition is logged in history
-- [ ] Collapsible process table shows all details
-- [ ] Blocked processes appear in a third lane (none yet, but lane renders when populated)
+- [x] Play → processes cycle READY → RUNNING → TERMINATED
+- [x] RUNNING lane shows the active process card (pulse glow)
+- [x] READY lane shows waiting processes in FIFO order
+- [x] TERMINATED card fades out and disappears after 3 ticks
+- [x] Each state transition is logged in history
+- [x] Collapsible process table shows all details
+- [x] Blocked processes appear in a third lane (none yet, but lane renders when populated)
 
 ## Files Touched
 - `src/lib/scheduler.ts` — scheduleFcfs

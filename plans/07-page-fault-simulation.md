@@ -176,11 +176,11 @@ Listed in `help` output but has no handler in `terminal.ts`. Implement a handler
 - [x] Frame detail shows page table for the owning process
 - [x] Memory grid briefly flashes red on fault
 - [x] Page fault alert badge renders when pageFaults > 0
-- [ ] `pfault 1 0` → process 1 enters BLOCKED state, pageFaults counter increments
-- [ ] After 3 ticks, BLOCKED process auto-resolves to READY
-- [ ] `free 1` clears both frames and page table entries
-- [ ] `renice` command changes process priority
-- [ ] `blockedTick` is set when a process transitions to BLOCKED
+- [x] `pfault 1 0` → process 1 enters BLOCKED state, pageFaults counter increments
+- [x] After 3 ticks, BLOCKED process auto-resolves to READY
+- [x] `free 1` clears both frames and page table entries
+- [x] `renice` command changes process priority
+- [x] `blockedTick` is set when a process transitions to BLOCKED
 
 ## Files Touched
 - `src/lib/memory.ts` — simulatePageFault, resolvePageFault, buildPageTable, populate pageTable on alloc

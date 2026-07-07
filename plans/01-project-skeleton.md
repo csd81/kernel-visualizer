@@ -313,13 +313,13 @@ export default function Home() {
 ```
 
 ## Acceptance Criteria
-- [ ] `bun dev` starts without errors
-- [ ] Browser shows four glassmorphic panels in a 2×2 grid on dark background
-- [ ] Panels have distinct neon-tinted borders (cyan, magenta, amber, green)
-- [ ] Header shows "Kernel Visualizer" title and `tick: 0`
-- [ ] Play button starts the tick counter incrementing; Pause freezes it
-- [ ] Speed slider changes tick rate in real time
-- [ ] No React/Next.js warnings in console
+- [x] `bun dev` starts without errors
+- [x] Browser shows four glassmorphic panels in a 2×2 grid on dark background
+- [x] Panels have distinct neon-tinted borders (cyan, magenta, amber, green)
+- [x] Header shows "Kernel Visualizer" title and `tick: 0`
+- [x] Play button starts the tick counter incrementing; Pause freezes it
+- [x] Speed slider changes tick rate in real time
+- [x] No React/Next.js warnings in console
 
 ## Files Touched
 - `src/app/globals.css` — theme tokens, animations
