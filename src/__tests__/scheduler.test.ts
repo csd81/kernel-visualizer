@@ -4,25 +4,26 @@ import { fork, kill, createProcess, scheduleFcfs } from "@/lib/scheduler";
 
 describe("createProcess", () => {
   test("creates a process with correct defaults", () => {
-    const proc = createProcess(42, 10, 5);
+    const proc = createProcess(42, 10, 5, 0);
     expect(proc.pid).toBe(42);
     expect(proc.totalTicks).toBe(10);
     expect(proc.remainingTicks).toBe(10);
     expect(proc.priority).toBe(5);
     expect(proc.state).toBe("READY");
+    expect(proc.readyTick).toBe(0);
     expect(proc.holds).toEqual([]);
     expect(proc.waitsFor).toBe(-1);
     expect(proc.pageTable).toEqual([]);
   });
 
   test("clamps priority to 0–9", () => {
-    expect(createProcess(1, 10, 15).priority).toBe(9);
-    expect(createProcess(2, 10, -5).priority).toBe(0);
+    expect(createProcess(1, 10, 15, 0).priority).toBe(9);
+    expect(createProcess(2, 10, -5, 0).priority).toBe(0);
   });
 
   test("assigns deterministic color", () => {
-    const p1 = createProcess(1, 10, 0);
-    const p2 = createProcess(1, 10, 0);
+    const p1 = createProcess(1, 10, 0, 0);
+    const p2 = createProcess(1, 10, 0, 0);
     expect(p1.color).toBe(p2.color);
   });
 });
@@ -116,9 +117,9 @@ describe("scheduleFcfs", () => {
     state = kill(state, 3).state;
     // Fork a 1-tick process (PID 4)
     const { state: withFork } = fork(state, 1, 0);
-    // PID 1 runs first (FCFS), run 12 calls to drain it and pick PID 4
+    // PID 1 runs first (FCFS). Call 11 terminates PID 1 and picks PID 4.
     let s = withFork;
-    for (let i = 0; i < 12; i++) s = scheduleFcfs(s);
+    for (let i = 0; i < 11; i++) s = scheduleFcfs(s);
     // PID 4 should now be RUNNING (1 tick)
     expect(s.processes.find(p => p.pid === 4)?.state).toBe("RUNNING");
     // Next tick — should finish

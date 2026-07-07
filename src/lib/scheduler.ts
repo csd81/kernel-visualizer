@@ -4,14 +4,16 @@ import { processColor } from "./colors";
 
 const MAX_PID = 1024;
 
-export function createProcess(pid: number, ticks: number, priority: number): Process {
+// ─── Process creation ────────────────────────────────────────────────
+
+export function createProcess(pid: number, ticks: number, priority: number, currentTick: number): Process {
   return {
     pid,
     state: "READY",
     totalTicks: ticks,
     remainingTicks: ticks,
     priority: Math.max(0, Math.min(9, priority)),
-    arrivalTick: 0,
+    readyTick: currentTick,
     totalRunTicks: 0,
     currentQuantumTicks: 0,
     ticksSinceRun: 0,
@@ -24,24 +26,25 @@ export function createProcess(pid: number, ticks: number, priority: number): Pro
   };
 }
 
+// ─── Fork / Kill ─────────────────────────────────────────────────────
+
 export function fork(state: SimState, ticks: number, priority: number): { state: SimState; message: string } {
   if (state.processes.length >= MAX_PID) {
     return { state, message: "Error: maximum processes reached" };
   }
   if (state.nextPid === undefined) {
-    // Fallback for states without nextPid
     return { state, message: "Error: invalid state" };
   }
   const pid = state.nextPid;
-  const nextPid = (pid % MAX_PID) + 1;
+  const nextPidVal = (pid % MAX_PID) + 1;
   const proc = createProcess(
     pid,
     Math.max(1, Math.min(100, isNaN(ticks) ? 10 : ticks)),
-    Math.max(0, Math.min(9, isNaN(priority) ? 0 : priority))
+    Math.max(0, Math.min(9, isNaN(priority) ? 0 : priority)),
+    state.tick
   );
-  proc.arrivalTick = state.tick;
   return {
-    state: { ...state, nextPid, processes: [...state.processes, proc] },
+    state: { ...state, nextPid: nextPidVal, processes: [...state.processes, proc] },
     message: `Created PID ${proc.pid} (${proc.totalTicks} ticks, pri ${proc.priority})`,
   };
 }
@@ -57,37 +60,246 @@ export function kill(state: SimState, pid: number): { state: SimState; message: 
   return { state: { ...state, processes }, message: `PID ${pid} terminated` };
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function getReady(processes: Process[]): Process[] {
+  return processes.filter(p => p.state === "READY");
+}
+
+/** Pick the next READY process (FIFO by readyTick). Returns null if none ready. */
+function pickupNext(processes: Process[]): number | null {
+  const ready = getReady(processes);
+  if (ready.length === 0) return null;
+  return ready.sort((a, b) => a.readyTick - b.readyTick)[0].pid;
+}
+
+function incrementTicksSinceRun(processes: Process[]): Process[] {
+  return processes.map(p =>
+    p.state === "READY" ? { ...p, ticksSinceRun: p.ticksSinceRun + 1 } : p
+  );
+}
+
+function setRunning(processes: Process[], pid: number): Process[] {
+  return processes.map(p =>
+    p.pid === pid ? { ...p, state: "RUNNING" as ProcessState, currentQuantumTicks: 0 } : p
+  );
+}
+
+// ─── FCFS ────────────────────────────────────────────────────────────
+
 export function scheduleFcfs(state: SimState): SimState {
+  let processes = incrementTicksSinceRun(state.processes);
   let contextSwitches = state.stats.contextSwitches;
-  const history = [...state.history];
+  let history = [...state.history];
 
-  const running = state.processes.find(p => p.state === "RUNNING");
-  if (running) {
-    const processes = state.processes.map(p => {
-      if (p.pid !== running.pid) return p;
-      const next = { ...p, remainingTicks: p.remainingTicks - 1, totalRunTicks: p.totalRunTicks + 1 };
-      if (next.remainingTicks <= 0) {
-        next.state = "TERMINATED";
-        next.terminatedTick = state.tick;
-        history.push({ tick: state.tick, pid: next.pid, event: "terminated" });
-      }
-      return next;
-    });
-    return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+  const runningIdx = processes.findIndex(p => p.state === "RUNNING");
+
+  if (runningIdx !== -1) {
+    const p = processes[runningIdx];
+    const updated = { ...p, remainingTicks: p.remainingTicks - 1, totalRunTicks: p.totalRunTicks + 1 };
+    if (updated.remainingTicks <= 0) {
+      updated.state = "TERMINATED";
+      updated.terminatedTick = state.tick;
+      history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
+    }
+
+    processes = [...processes];
+    processes[runningIdx] = updated;
+
+    if (updated.state !== "TERMINATED") {
+      return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+    }
+    // Fall through to pick the next process
   }
 
-  const next = state.processes
-    .filter(p => p.state === "READY")
-    .sort((a, b) => a.arrivalTick - b.arrivalTick)[0];
+  const nextPid = pickupNext(processes);
+  if (nextPid === null) return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
 
-  if (next) {
-    const processes = state.processes.map(p =>
-      p.pid === next.pid ? { ...p, state: "RUNNING" as ProcessState } : p
-    );
-    contextSwitches++;
-    history.push({ tick: state.tick, pid: next.pid, event: "scheduled" });
-    return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+  processes = setRunning(processes, nextPid);
+  contextSwitches++;
+  history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
+  return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+}
+
+// ─── Round Robin ─────────────────────────────────────────────────────
+
+export function scheduleRr(state: SimState): SimState {
+  let processes = incrementTicksSinceRun(state.processes);
+  let contextSwitches = state.stats.contextSwitches;
+  let history = [...state.history];
+
+  const runningIdx = processes.findIndex(p => p.state === "RUNNING");
+
+  if (runningIdx !== -1) {
+    const p = processes[runningIdx];
+    const updated = {
+      ...p,
+      remainingTicks: p.remainingTicks - 1,
+      totalRunTicks: p.totalRunTicks + 1,
+      currentQuantumTicks: p.currentQuantumTicks + 1,
+    };
+
+    if (updated.remainingTicks <= 0) {
+      updated.state = "TERMINATED";
+      updated.terminatedTick = state.tick;
+      history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
+    } else if (updated.currentQuantumTicks >= state.quantum) {
+      updated.state = "READY";
+      updated.readyTick = state.tick;
+      updated.currentQuantumTicks = 0;
+      history.push({ tick: state.tick, pid: updated.pid, event: "preempted" });
+    }
+
+    processes = [...processes];
+    processes[runningIdx] = updated;
+
+    if (updated.state === "RUNNING") {
+      return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+    }
   }
 
-  return state;
+  const nextPid = pickupNext(processes);
+  if (nextPid === null) return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+
+  processes = setRunning(processes, nextPid);
+  contextSwitches++;
+  history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
+  return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+}
+
+// ─── Priority (Preemptive) ───────────────────────────────────────────
+
+export function schedulePriority(state: SimState): SimState {
+  let processes = incrementTicksSinceRun(state.processes);
+  let contextSwitches = state.stats.contextSwitches;
+  let history = [...state.history];
+
+  const runningIdx = processes.findIndex(p => p.state === "RUNNING");
+
+  if (runningIdx !== -1) {
+    const running = processes[runningIdx];
+
+    // Check if any READY process has higher priority
+    const higherPrio = getReady(processes)
+      .filter(p => p.priority > running.priority)
+      .sort((a, b) => b.priority - a.priority || a.readyTick - b.readyTick);
+
+    if (higherPrio.length > 0) {
+      // Preempt current process back to READY
+      processes = [...processes];
+      processes[runningIdx] = {
+        ...running,
+        state: "READY" as ProcessState,
+        readyTick: state.tick,
+        currentQuantumTicks: 0,
+      };
+      history.push({ tick: state.tick, pid: running.pid, event: "preempted" });
+
+      const nextPid = higherPrio[0].pid;
+      processes = setRunning(processes, nextPid);
+      contextSwitches++;
+      history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
+      return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+    }
+
+    // No preemption — decrement normally
+    const updated = {
+      ...running,
+      remainingTicks: running.remainingTicks - 1,
+      totalRunTicks: running.totalRunTicks + 1,
+    };
+    if (updated.remainingTicks <= 0) {
+      updated.state = "TERMINATED";
+      updated.terminatedTick = state.tick;
+      history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
+    }
+    processes = [...processes];
+    processes[runningIdx] = updated;
+
+    if (updated.state !== "TERMINATED") {
+      return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+    }
+  }
+
+  const nextPid = pickupNext(processes);
+  if (nextPid === null) return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+
+  processes = setRunning(processes, nextPid);
+  contextSwitches++;
+  history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
+  return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
+}
+
+// ─── MLFQ ────────────────────────────────────────────────────────────
+
+const MLFQ_QUANTA = [2, 5, 12];
+
+export function scheduleMlfq(state: SimState): SimState {
+  let processes = incrementTicksSinceRun(state.processes);
+  let contextSwitches = state.stats.contextSwitches;
+  let history = [...state.history];
+
+  // Periodic boost: every 50 ticks, reset all non-terminated processes to level 0
+  let ticksSinceBoost = state.ticksSinceBoost + 1;
+  if (ticksSinceBoost >= 50) {
+    processes = processes.map(p => (p.state !== "TERMINATED" ? { ...p, mlfqLevel: 0 } : p));
+    ticksSinceBoost = 0;
+  }
+
+  const runningIdx = processes.findIndex(p => p.state === "RUNNING");
+
+  if (runningIdx !== -1) {
+    const p = processes[runningIdx];
+    const updated = {
+      ...p,
+      remainingTicks: p.remainingTicks - 1,
+      totalRunTicks: p.totalRunTicks + 1,
+      currentQuantumTicks: p.currentQuantumTicks + 1,
+    };
+
+    const levelQuantum = MLFQ_QUANTA[updated.mlfqLevel] ?? MLFQ_QUANTA[2];
+
+    if (updated.remainingTicks <= 0) {
+      updated.state = "TERMINATED";
+      updated.terminatedTick = state.tick;
+      history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
+    } else if (updated.currentQuantumTicks >= levelQuantum) {
+      // Demote, re-queue with fresh readyTick
+      updated.mlfqLevel = Math.min(2, updated.mlfqLevel + 1);
+      updated.state = "READY";
+      updated.readyTick = state.tick;
+      updated.currentQuantumTicks = 0;
+      history.push({ tick: state.tick, pid: updated.pid, event: "preempted" });
+    }
+
+    processes = [...processes];
+    processes[runningIdx] = updated;
+
+    if (updated.state === "RUNNING") {
+      return { ...state, processes, ticksSinceBoost, history, stats: { ...state.stats, contextSwitches } };
+    }
+  }
+
+  // Pick next: highest level (lowest number) first, then FIFO by readyTick
+  const ready = getReady(processes);
+  if (ready.length === 0) {
+    return { ...state, processes, ticksSinceBoost, history, stats: { ...state.stats, contextSwitches } };
+  }
+
+  const nextPid = ready.sort((a, b) => a.mlfqLevel - b.mlfqLevel || a.readyTick - b.readyTick)[0].pid;
+  processes = setRunning(processes, nextPid);
+  contextSwitches++;
+  history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
+  return { ...state, processes, ticksSinceBoost, history, stats: { ...state.stats, contextSwitches } };
+}
+
+// ─── Dispatcher ──────────────────────────────────────────────────────
+
+export function schedule(state: SimState): SimState {
+  switch (state.scheduler) {
+    case "rr":       return scheduleRr(state);
+    case "priority": return schedulePriority(state);
+    case "mlfq":     return scheduleMlfq(state);
+    default:         return scheduleFcfs(state);
+  }
 }

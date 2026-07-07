@@ -32,7 +32,7 @@ function createInitialProcess(pid: number, ticks: number, priority: number): Pro
   return {
     pid, state: "READY" as ProcessState,
     totalTicks: ticks, remainingTicks: ticks, priority,
-    arrivalTick: 0, totalRunTicks: 0,
+    readyTick: 0, totalRunTicks: 0,
     currentQuantumTicks: 0, ticksSinceRun: 0, blockedTick: 0, mlfqLevel: 0,
     color: processColor(pid), pageTable: [], holds: [], waitsFor: -1,
   };
