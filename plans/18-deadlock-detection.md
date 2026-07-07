@@ -136,11 +136,11 @@ case "deadlock": {
 When a deadlocked process is killed, its frames are freed, which may unblock the other process. The next tick's `retryBlockedProcesses` picks this up naturally.
 
 ## Acceptance Criteria
-- [ ] Deadlock detection finds cycles in the wait-for graph
-- [ ] Deadlocked processes glow red in the scheduler panel
-- [ ] Deadlock banner appears at the top of the dashboard
-- [ ] `load-preset deadlock` sets up a verifiable deadlock
-- [ ] Killing one deadlocked process resolves the other
+- [x] Deadlock detection finds cycles in the wait-for graph
+- [x] Deadlocked processes glow red in the scheduler panel
+- [x] Deadlock banner appears at the top of the dashboard
+- [x] `load-preset deadlock` sets up a verifiable deadlock
+- [x] Killing one deadlocked process resolves the other
 
 ## Files Touched
 - `src/lib/deadlock.ts` — detectDeadlock
