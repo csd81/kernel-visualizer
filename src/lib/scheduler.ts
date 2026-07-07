@@ -244,8 +244,21 @@ export function scheduleRr(state: SimState): SimState {
 
 // ─── Priority (Preemptive) ───────────────────────────────────────────
 
+export function applyAging(processes: Process[], threshold: number): Process[] {
+  return processes.map(p => {
+    if (p.state !== "READY") return p;
+    const waited = p.ticksSinceRun + 1;
+    if (waited > threshold && p.priority < 9) {
+      return { ...p, priority: p.priority + 1, ticksSinceRun: 0 };
+    }
+    return { ...p, ticksSinceRun: waited };
+  });
+}
+
 export function schedulePriority(state: SimState): SimState {
   let processes = incrementTicksSinceRun(state.processes);
+  // Apply aging before scheduling
+  processes = applyAging(processes, state.agingThreshold);
   let contextSwitches = state.stats.contextSwitches;
   let history = [...state.history];
 

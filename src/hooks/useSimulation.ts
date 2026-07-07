@@ -49,6 +49,7 @@ export function useSimulation() {
   const setSpeed = useCallback((ms: number) => setState(prev => ({ ...prev, speed: Math.max(50, Math.min(2000, ms)) })), []);
   const setScheduler = useCallback((s: SchedAlgorithm) => setState(prev => ({ ...prev, scheduler: s })), []);
   const setQuantum = useCallback((q: number) => setState(prev => ({ ...prev, quantum: Math.max(1, Math.min(20, q)) })), []);
+  const setAgingThreshold = useCallback((t: number) => setState(prev => ({ ...prev, agingThreshold: Math.max(5, Math.min(100, t)) })), []);
   const setMemAlgorithm = useCallback((a: "first-fit" | "best-fit") => setState(prev => ({
     ...prev, memory: { ...prev.memory, algorithm: a }
   })), []);
@@ -94,7 +95,7 @@ export function useSimulation() {
   }, [state.running, state.speed, doTick]);
 
   return {
-    state, start, stop, setSpeed, setScheduler, setQuantum,
+    state, start, stop, setSpeed, setScheduler, setQuantum, setAgingThreshold,
     setMemAlgorithm, processCommand, loadPreset: loadPresetAction,
     resetSim, downloadState,
   };

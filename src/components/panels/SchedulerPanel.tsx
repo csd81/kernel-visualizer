@@ -33,8 +33,22 @@ export default function SchedulerPanel() {
       <AlgorithmSelector />
 
       <QueueLane label="RUNNING" processes={running ? [running] : []} variant="running" quantum={state.scheduler === "rr" ? state.quantum : undefined} deadlockedPids={state.deadlockedPids} />
-      <QueueLane label="READY" processes={ready} deadlockedPids={state.deadlockedPids} />
+      {state.scheduler === "mlfq" ? (
+        <>
+          <QueueLane label="Q0 (high)" processes={ready.filter(p => p.mlfqLevel === 0)} deadlockedPids={state.deadlockedPids} />
+          <QueueLane label="Q1 (med)"  processes={ready.filter(p => p.mlfqLevel === 1)} deadlockedPids={state.deadlockedPids} />
+          <QueueLane label="Q2 (low)"  processes={ready.filter(p => p.mlfqLevel === 2)} deadlockedPids={state.deadlockedPids} />
+        </>
+      ) : (
+        <QueueLane label="READY" processes={ready} deadlockedPids={state.deadlockedPids} />
+      )}
       {blocked.length > 0 && <QueueLane label="BLOCKED" processes={blocked} />}
+
+      {state.processes.some(p => p.state === "READY" && p.ticksSinceRun > 30) && (
+        <div className="text-[10px] text-yellow-400 flex items-center gap-1 mt-1">
+          ⚠ Starvation: {state.processes.filter(p => p.state === "READY" && p.ticksSinceRun > 30).length} process(es) waiting &gt;30 ticks
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap mb-2">
         <StatTile icon="⚡" label="CPU" value={`${cpuUtil}%`} sparkline={state.stats.cpuUtil} sparkColor="#00e5ff" warn={cpuUtil > 80} critical={cpuUtil > 95} />

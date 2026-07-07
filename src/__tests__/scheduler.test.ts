@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createInitialState, tick as simTick } from "@/lib/sim";
-import { fork, kill, createProcess, scheduleFcfs, renice } from "@/lib/scheduler";
+import { fork, kill, createProcess, scheduleFcfs, renice, applyAging } from "@/lib/scheduler";
 
 describe("createProcess", () => {
   test("creates a process with correct defaults", () => {
@@ -114,6 +114,38 @@ describe("renice", () => {
     state = kill(state, 1).state;
     const { message } = renice(state, 1, 5);
     expect(message).toContain("terminated");
+  });
+});
+
+describe("applyAging", () => {
+  test("boosts priority of starved process", () => {
+    const state = createInitialState();
+    // Set a process with high ticksSinceRun
+    const procs = state.processes.map(p =>
+      p.pid === 3 ? { ...p, ticksSinceRun: 25, priority: 5 } : p
+    );
+    const aged = applyAging(procs, 20);
+    const p3 = aged.find(p => p.pid === 3)!;
+    expect(p3.priority).toBe(6);
+    expect(p3.ticksSinceRun).toBe(0);
+  });
+
+  test("does not boost within threshold", () => {
+    const state = createInitialState();
+    const procs = state.processes.map(p =>
+      p.pid === 3 ? { ...p, ticksSinceRun: 10, priority: 5 } : p
+    );
+    const aged = applyAging(procs, 20);
+    expect(aged.find(p => p.pid === 3)?.priority).toBe(5);
+  });
+
+  test("caps at priority 9", () => {
+    const state = createInitialState();
+    const procs = state.processes.map(p =>
+      p.pid === 3 ? { ...p, ticksSinceRun: 30, priority: 9 } : p
+    );
+    const aged = applyAging(procs, 20);
+    expect(aged.find(p => p.pid === 3)?.priority).toBe(9);
   });
 });
 

@@ -11,6 +11,7 @@ interface SimContextValue {
   setSpeed: (ms: number) => void;
   setScheduler: (s: SchedAlgorithm) => void;
   setQuantum: (q: number) => void;
+  setAgingThreshold: (t: number) => void;
   setMemAlgorithm: (a: "first-fit" | "best-fit") => void;
   processCommand: (input: string) => void;
   loadPreset: (name: "empty" | "cpu-demo" | "memory-pressure" | "disk-frag" | "deadlock") => void;

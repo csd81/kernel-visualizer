@@ -9,10 +9,11 @@ Implement priority aging (boost starved processes) and MLFQ (three queue bands w
 ## Tasks
 
 ### 1. Priority aging
+**Status: NOT DONE**
+
+`applyAging()` does not exist anywhere in the codebase. `agingThreshold` is defined in `SimState` (default 20) but never read or used. Add:
 
 **File: `src/lib/scheduler.ts`**
-
-Add aging to the priority scheduler:
 
 ```ts
 export function applyAging(processes: Process[], threshold: number): Process[] {
@@ -27,79 +28,84 @@ export function applyAging(processes: Process[], threshold: number): Process[] {
 }
 ```
 
-Configurable via `sim.agingThreshold` (default 20 ticks). Add toggle in the scheduler panel:
-```tsx
-<label className="flex items-center gap-1.5 text-[10px] text-text-secondary">
-  Aging
-  <input type="number" min={5} max={100} value={state.agingThreshold}
-    onChange={e => setAgingThreshold(Number(e.target.value))}
-    className="w-12 bg-white/6 border border-white/10 rounded px-1.5 py-0.5 text-xs font-mono" />
-  ticks
-</label>
-```
+Call `applyAging` inside `schedulePriority()` before picking the next process. Also wire `setAgingThreshold` through `SimulationContext` to allow the configurable input.
 
 ### 2. Multi-Level Feedback Queue
+**Status: DONE** — `scheduleMlfq()` in `scheduler.ts` implements 3 queue levels with quanta [2, 5, 12], demotion on full quantum usage, and periodic boost every 50 ticks. Wired through the `schedule()` dispatcher. `mlfqLevel` field exists on the Process type. `ticksSinceBoost` is tracked in SimState.
 
-**File: `src/lib/scheduler.ts`**
+### 3. MLFQ visual — three distinct queue lanes
+**Status: NOT DONE**
 
-Add scheduling algorithm `"mlfq"`:
+`SchedulerPanel.tsx` currently renders all READY processes in a single lane regardless of algorithm. In MLFQ mode, split into three lanes (Q0 / Q1 / Q2) with distinct visual styles:
 
-- 3 queues: Q0 (quantum 2, highest priority), Q1 (quantum 5), Q2 (quantum 12)
-- Processes start in Q0
-- If a process uses its full quantum → demote one level
-- If it blocks (I/O voluntarily via `pfault`) → same or promote one level
-- Periodic boost: every 50 ticks, move all processes back to Q0
-
-```ts
-const MLFQ_QUEUES = [2, 5, 12]; // quanta per level
-
-export function scheduleMlfq(state: SimState): SimState {
-  // … implementation
-  // Find highest non-empty queue (0 → 1 → 2)
-  // Run process from that queue
-  // Track currentQuantum — if exceeded, demote
-}
+```tsx
+{state.scheduler === "mlfq" && (
+  <>
+    <QueueLane label="Q0 (high)" processes={ready.filter(p => p.mlfqLevel === 0)} variant="queue" />
+    <QueueLane label="Q1 (med)"  processes={ready.filter(p => p.mlfqLevel === 1)} variant="queue" />
+    <QueueLane label="Q2 (low)"  processes={ready.filter(p => p.mlfqLevel === 2)} variant="queue" />
+  </>
+)}
+{state.scheduler !== "mlfq" && (
+  <QueueLane label="READY" processes={ready} />
+)}
 ```
 
-### 3. MLFQ visual
-
-Three stacked queue lanes with distinct styles:
-
-- **Q0** (high): bright border, `border-color: var(--color-accent-scheduler)`
-- **Q1** (medium): normal border
-- **Q2** (low): dimmed border, smaller cards
-
-Update `SchedulerPanel` to render three lanes when in MLFQ mode.
+Apply distinct accent borders to each lane level (bright for Q0, normal for Q1, dimmed for Q2).
 
 ### 4. Periodic boost
-
-Track `sim.ticksSinceBoost`. After 50 ticks, move all processes to Q0 and reset counter.
-
-```ts
-if (state.scheduler === "mlfq" && state.ticksSinceBoost >= 50) {
-  processes = processes.map(p => ({ ...p, mlfqLevel: 0 }));
-  ticksSinceBoost = 0;
-}
-```
+**Status: DONE** — Built into `scheduleMlfq`. After 50 ticks, all non-terminated processes are reset to `mlfqLevel: 0` and `ticksSinceBoost` resets.
 
 ### 5. Algorithm selector update
-
-Add `"MLFQ"` option to the `<select>` dropdown.
+**Status: DONE** — `AlgorithmSelector.tsx` already includes `MLFQ` in the dropdown.
 
 ### 6. Starvation indicator
+**Status: NOT DONE**
 
-When any process has `ticksSinceRun > 30`, show a small yellow warning in the scheduler panel.
+Add a yellow warning badge in `SchedulerPanel` when any process has `ticksSinceRun > 30`:
+
+```tsx
+{state.processes.some(p => p.state === "READY" && p.ticksSinceRun > 30) && (
+  <div className="text-[10px] text-yellow-400 flex items-center gap-1 mt-1">
+    ⚠ Starvation: {state.processes.filter(p => p.state === "READY" && p.ticksSinceRun > 30).length} process(es) waiting &gt;30 ticks
+  </div>
+)}
+```
+
+### 7. Aging controls in UI
+**Status: NOT DONE**
+
+Add aging threshold input alongside the algorithm selector, visible for all algorithms:
+
+**File: `src/components/scheduler/AlgorithmSelector.tsx`** (or within `SchedulerPanel`)
+
+```tsx
+{state.scheduler === "priority" && (
+  <label className="flex items-center gap-1 text-[10px] text-text-secondary">
+    Aging
+    <input type="number" min={5} max={100}
+      value={state.agingThreshold}
+      onChange={e => setAgingThreshold(Number(e.target.value))}
+      className="w-10 bg-white/6 border border-white/10 rounded px-1 py-0.5 text-[10px] font-mono text-text-primary"
+    />
+    ticks
+  </label>
+)}
+```
 
 ## Acceptance Criteria
-- [ ] Priority aging: READY process waiting > 20 ticks gets priority boost, visible on the card
-- [ ] MLFQ: processes start in Q0, demote after full quantum usage
-- [ ] MLFQ: periodic boost resets all processes to Q0 every 50 ticks
-- [ ] Three distinct queue lanes visible in MLFQ mode
+- [ ] Priority aging: READY process waiting > threshold ticks gets priority boost, visible on the card
+- [x] MLFQ: processes start in Q0, demote after full quantum usage
+- [x] MLFQ: periodic boost resets all processes to Q0 every 50 ticks
+- [ ] Three distinct queue lanes visible in MLFQ mode (Q0 / Q1 / Q2)
 - [ ] Starvation warning appears when a process hasn't run in 30+ ticks
+- [ ] Aging threshold is configurable in the UI
 
 ## Files Touched
-- `src/lib/scheduler.ts` — applyAging, scheduleMlfq
-- `src/types/sim.ts` — agingThreshold, mlfqLevel, ticksSinceBoost
-- `src/types/process.ts` — ticksSinceRun, mlfqLevel
-- `src/components/scheduler/AlgorithmSelector.tsx` — add MLFQ, aging controls
-- `src/components/panels/SchedulerPanel.tsx` — three lanes for MLFQ, starvation badge
+- `src/lib/scheduler.ts` — add `applyAging`, integrate into `schedulePriority`
+- `src/types/sim.ts` — `agingThreshold` (field exists, unused ✅), `ticksSinceBoost` ✅
+- `src/types/process.ts` — `ticksSinceRun` ✅, `mlfqLevel` ✅
+- `src/components/scheduler/AlgorithmSelector.tsx` — add aging controls
+- `src/components/panels/SchedulerPanel.tsx` — three MLFQ lanes, starvation badge
+- `src/hooks/useSimulation.ts` — add `setAgingThreshold`
+- `src/hooks/SimulationContext.tsx` — add `setAgingThreshold`
