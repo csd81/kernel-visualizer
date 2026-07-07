@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createInitialMemoryState } from "@/lib/sim";
-import { firstFit, bestFit, allocateFrames, freeProcessFrames, largestFreeBlock, memoryStats, TOTAL_FRAMES } from "@/lib/memory";
+import { createInitialMemoryState, createInitialState } from "@/lib/sim";
+import { firstFit, bestFit, allocateFrames, freeProcessFrames, largestFreeBlock, memoryStats, TOTAL_FRAMES, buildPageTable, simulatePageFault, resolvePageFault } from "@/lib/memory";
 
 describe("firstFit", () => {
   test("finds first contiguous block starting at 0", () => {
@@ -103,6 +103,68 @@ describe("largestFreeBlock", () => {
     for (let i = 20; i < 25; i++) mem.frames[i].pid = 1;
     // Free gaps: 10-19 (10), 25-255 (231). Largest = 231
     expect(largestFreeBlock(mem.frames)).toBe(231);
+  });
+});
+
+describe("buildPageTable", () => {
+  test("creates page table entries from allocated frame list", () => {
+    const pte = buildPageTable([10, 11, 12]);
+    expect(pte).toHaveLength(3);
+    expect(pte[0]).toEqual({ logicalPage: 0, frameNum: 10, present: true });
+    expect(pte[1]).toEqual({ logicalPage: 1, frameNum: 11, present: true });
+    expect(pte[2]).toEqual({ logicalPage: 2, frameNum: 12, present: true });
+  });
+});
+
+describe("simulatePageFault", () => {
+  test("blocks the process and increments counter", () => {
+    const state = createInitialState();
+    const pid = state.processes[0].pid;
+    const { state: next, message } = simulatePageFault(state, pid, 0);
+    expect(next.processes.find(p => p.pid === pid)?.state).toBe("BLOCKED");
+    expect(next.processes.find(p => p.pid === pid)?.blockedTick).toBe(0);
+    expect(next.stats.pageFaults).toBe(1);
+    expect(next.memory.faultFlash).toBe(true);
+    expect(message).toContain("PAGE FAULT");
+  });
+
+  test("sets blockedTick to current tick", () => {
+    const state = { ...createInitialState(), tick: 42 };
+    const pid = state.processes[0].pid;
+    const { state: next } = simulatePageFault(state, pid, 0);
+    expect(next.processes.find(p => p.pid === pid)?.blockedTick).toBe(42);
+  });
+
+  test("returns error for unknown PID", () => {
+    const state = createInitialState();
+    const { message } = simulatePageFault(state, 9999, 0);
+    expect(message).toContain("unknown PID");
+  });
+
+  test("returns error for terminated process", () => {
+    let state = createInitialState();
+    const pid = state.processes[0].pid;
+    state = { ...state, processes: state.processes.map(p => p.pid === pid ? { ...p, state: "TERMINATED" as const } : p) };
+    const { message } = simulatePageFault(state, pid, 0);
+    expect(message).toContain("terminated");
+  });
+});
+
+describe("resolvePageFault", () => {
+  test("unblocks a blocked process", () => {
+    let state = createInitialState();
+    const pid = state.processes[0].pid;
+    const { state: blocked } = simulatePageFault(state, pid, 0);
+    const resolved = resolvePageFault(blocked, pid);
+    expect(resolved.processes.find(p => p.pid === pid)?.state).toBe("READY");
+  });
+
+  test("sets readyTick on resolution", () => {
+    let state = { ...createInitialState(), tick: 50 };
+    const pid = state.processes[0].pid;
+    const { state: blocked } = simulatePageFault(state, pid, 0);
+    const resolved = resolvePageFault(blocked, pid);
+    expect(resolved.processes.find(p => p.pid === pid)?.readyTick).toBe(50);
   });
 });
 

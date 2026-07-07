@@ -9,6 +9,7 @@ import { detectDeadlock } from "@/lib/deadlock";
 import { loadPreset, exportState } from "@/lib/presets";
 import type { SchedAlgorithm } from "@/types/sim";
 import { addLine } from "@/lib/terminal-parser";
+import { resolvePageFault } from "@/lib/memory";
 
 export function useSimulation() {
   const [state, setState] = useState<SimState>(createInitialState);
@@ -17,7 +18,9 @@ export function useSimulation() {
   const doTick = useCallback(() => {
     setState(prev => {
       let next = { ...simTick(prev) };
+      next = { ...next, memory: { ...next.memory, faultFlash: false } };
       next = schedule(next);
+      next = resolveBlockedProcesses(next);
       next = applyCleanup(next);
       // Stats
       const running = next.processes.some(p => p.state === "RUNNING");
@@ -94,6 +97,17 @@ export function useSimulation() {
     setMemAlgorithm, processCommand, loadPreset: loadPresetAction,
     resetSim, downloadState,
   };
+}
+
+function resolveBlockedProcesses(state: SimState): SimState {
+  // Auto-resolve BLOCKED processes that have been blocked for 3+ ticks
+  let next = state;
+  for (const proc of state.processes) {
+    if (proc.state === "BLOCKED" && state.tick - proc.blockedTick >= 3) {
+      next = resolvePageFault(next, proc.pid);
+    }
+  }
+  return next;
 }
 
 function applyCleanup(state: SimState): SimState {

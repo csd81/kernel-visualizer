@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createInitialState, tick as simTick } from "@/lib/sim";
-import { fork, kill, createProcess, scheduleFcfs } from "@/lib/scheduler";
+import { fork, kill, createProcess, scheduleFcfs, renice } from "@/lib/scheduler";
 
 describe("createProcess", () => {
   test("creates a process with correct defaults", () => {
@@ -87,6 +87,34 @@ describe("kill", () => {
     const { state: afterFirst } = kill(state, pid);
     const { message } = kill(afterFirst, pid);
     expect(message).toContain("already terminated");
+  });
+});
+
+describe("renice", () => {
+  test("changes process priority", () => {
+    const state = createInitialState();
+    const { state: next, message } = renice(state, 1, 9);
+    expect(next.processes.find(p => p.pid === 1)?.priority).toBe(9);
+    expect(message).toContain("set to 9");
+  });
+
+  test("clamps priority to 0–9", () => {
+    const state = createInitialState();
+    const { state: next } = renice(state, 1, 99);
+    expect(next.processes.find(p => p.pid === 1)?.priority).toBe(9);
+  });
+
+  test("returns error for unknown PID", () => {
+    const state = createInitialState();
+    const { message } = renice(state, 999, 5);
+    expect(message).toContain("unknown PID");
+  });
+
+  test("returns error for terminated process", () => {
+    let state = createInitialState();
+    state = kill(state, 1).state;
+    const { message } = renice(state, 1, 5);
+    expect(message).toContain("terminated");
   });
 });
 

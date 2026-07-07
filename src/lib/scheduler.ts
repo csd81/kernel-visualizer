@@ -55,6 +55,17 @@ export function kill(state: SimState, pid: number): { state: SimState; message: 
   return { state: { ...state, processes }, message: `PID ${pid} terminated` };
 }
 
+export function renice(state: SimState, pid: number, newPriority: number): { state: SimState; message: string } {
+  const proc = state.processes.find(p => p.pid === pid);
+  if (!proc) return { state, message: `Error: unknown PID ${pid}` };
+  if (proc.state === "TERMINATED") return { state, message: `Error: PID ${pid} is terminated` };
+  const clamped = Math.max(0, Math.min(9, newPriority));
+  const processes = state.processes.map(p =>
+    p.pid === pid ? { ...p, priority: clamped } : p
+  );
+  return { state: { ...state, processes }, message: `PID ${pid} priority set to ${clamped}` };
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 function getReady(processes: Process[]): Process[] {

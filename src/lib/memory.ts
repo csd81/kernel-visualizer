@@ -1,4 +1,5 @@
-import type { MemoryState, Frame } from "@/types/memory";
+import type { MemoryState, Frame, PageTableEntry } from "@/types/memory";
+import type { SimState } from "@/types/sim";
 
 export const TOTAL_FRAMES = 256;
 
@@ -71,4 +72,55 @@ export function memoryStats(state: MemoryState) {
   const used = TOTAL_FRAMES - totalFree;
   const fragPct = totalFree > 0 ? Math.round((1 - largest / totalFree) * 100) : 0;
   return { used, total: TOTAL_FRAMES, totalFree, largestFreeBlock: largest, fragPct };
+}
+
+// ─── Page Table ──────────────────────────────────────────────────────
+
+export function buildPageTable(allocated: number[]): PageTableEntry[] {
+  return allocated.map((frameNum, i) => ({
+    logicalPage: i,
+    frameNum,
+    present: true,
+  }));
+}
+
+// ─── Page Fault Simulation ───────────────────────────────────────────
+
+export function simulatePageFault(
+  simState: SimState,
+  pid: number,
+  logicalPage: number
+): { state: SimState; message: string } {
+  const proc = simState.processes.find(p => p.pid === pid);
+  if (!proc) return { state: simState, message: `Error: unknown PID ${pid}` };
+  if (proc.state === "TERMINATED") return { state: simState, message: `Error: PID ${pid} is terminated` };
+
+  const processes = simState.processes.map(p =>
+    p.pid === pid
+      ? { ...p, state: "BLOCKED" as const, blockedTick: simState.tick }
+      : p
+  );
+
+  const pageFaults = simState.stats.pageFaults + 1;
+
+  return {
+    state: {
+      ...simState,
+      processes,
+      memory: { ...simState.memory, faultFlash: true },
+      stats: { ...simState.stats, pageFaults },
+    },
+    message: `⚠️ PAGE FAULT — PID ${pid} page ${logicalPage} (total: ${pageFaults})`,
+  };
+}
+
+export function resolvePageFault(simState: SimState, pid: number): SimState {
+  return {
+    ...simState,
+    processes: simState.processes.map(p =>
+      p.pid === pid && p.state === "BLOCKED"
+        ? { ...p, state: "READY" as const, readyTick: simState.tick }
+        : p
+    ),
+  };
 }

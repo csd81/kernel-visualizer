@@ -1,7 +1,7 @@
 import type { SimState } from "@/types/sim";
 import { parseCommand } from "./terminal-parser";
-import { fork, kill } from "./scheduler";
-import { allocateFrames, freeProcessFrames } from "./memory";
+import { fork, kill, renice } from "./scheduler";
+import { allocateFrames, freeProcessFrames, simulatePageFault, buildPageTable } from "./memory";
 import { createFile, deleteFile, ls, df } from "./filesystem";
 import { addLine } from "./terminal-parser";
 
@@ -51,6 +51,14 @@ export function processShellCommand(state: SimState, input: string): SimState {
       return { ...result.state, terminal: { ...result.state.terminal, output } };
     }
 
+    case "renice": {
+      const pid = parseInt(args[0]), pri = parseInt(args[1]);
+      if (isNaN(pid) || isNaN(pri)) return { ...next, terminal: { ...next.terminal, output: addLine(output, "Usage: renice <pid> <priority>", "error") } };
+      const result = renice(next, pid, pri);
+      output = addLine(output, result.message, result.message.includes("set to") ? "success" : "error");
+      return { ...result.state, terminal: { ...result.state.terminal, output } };
+    }
+
     case "ps": {
       if (next.processes.length === 0) {
         output = addLine(output, "No processes.", "info");
@@ -70,7 +78,13 @@ export function processShellCommand(state: SimState, input: string): SimState {
       if (result.message) {
         output = addLine(output, `Error: ${result.message}`, "error");
       } else {
+        // Build page table entries and attach to process
+        const pageTable = buildPageTable(result.allocated);
+        const newProcesses = next.processes.map(p =>
+          p.pid === pid ? { ...p, pageTable: [...p.pageTable, ...pageTable], holds: [...p.holds, ...result.allocated] } : p
+        );
         output = addLine(output, `Allocated ${size} KB to PID ${pid} (frames ${result.allocated[0]}–${result.allocated[result.allocated.length - 1]})`, "success");
+        return { ...next, processes: newProcesses, memory: result.memory, terminal: { ...next.terminal, output } };
       }
       return { ...next, memory: result.memory, terminal: { ...next.terminal, output } };
     }
@@ -79,9 +93,21 @@ export function processShellCommand(state: SimState, input: string): SimState {
       const fpid = parseInt(args[0]);
       if (isNaN(fpid)) return { ...next, terminal: { ...next.terminal, output: addLine(output, "Usage: free <pid>", "error") } };
       const newMem = freeProcessFrames(next.memory, fpid);
+      // Clear page table and holds for the process
+      const newProcesses = next.processes.map(p =>
+        p.pid === fpid ? { ...p, pageTable: [], holds: [] } : p
+      );
       const freed = state.memory.frames.filter(f => f.pid === fpid).length;
       output = addLine(output, `Freed ${freed} frames for PID ${fpid}`, "success");
-      return { ...next, memory: newMem, terminal: { ...next.terminal, output } };
+      return { ...next, processes: newProcesses, memory: newMem, terminal: { ...next.terminal, output } };
+    }
+
+    case "pfault": {
+      const pid = parseInt(args[0]), page = parseInt(args[1]);
+      if (isNaN(pid) || isNaN(page)) return { ...next, terminal: { ...next.terminal, output: addLine(output, "Usage: pfault <pid> <page>", "error") } };
+      const result = simulatePageFault(next, pid, page);
+      output = addLine(output, result.message, "warning");
+      return { ...result.state, terminal: { ...result.state.terminal, output } };
     }
 
     case "create": {

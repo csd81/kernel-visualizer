@@ -161,6 +161,58 @@ describe("processShellCommand", () => {
     expect(next.running).toBe(true);
   });
 
+  test("handles pfault command", () => {
+    const state = createInitialState();
+    const pid = state.processes[0].pid;
+    const next = processShellCommand(state, `pfault ${pid} 0`);
+    const lastOutput = next.terminal.output[next.terminal.output.length - 1];
+    expect(lastOutput.text).toContain("PAGE FAULT");
+    expect(lastOutput.type).toBe("warning");
+    expect(next.processes.find(p => p.pid === pid)?.state).toBe("BLOCKED");
+  });
+
+  test("handles pfault with missing args", () => {
+    const state = createInitialState();
+    const next = processShellCommand(state, "pfault");
+    const lastOutput = next.terminal.output[next.terminal.output.length - 1];
+    expect(lastOutput.type).toBe("error");
+  });
+
+  test("handles renice command", () => {
+    const state = createInitialState();
+    const next = processShellCommand(state, "renice 1 9");
+    const lastOutput = next.terminal.output[next.terminal.output.length - 1];
+    expect(lastOutput.text).toContain("set to 9");
+    expect(lastOutput.type).toBe("success");
+    expect(next.processes.find(p => p.pid === 1)?.priority).toBe(9);
+  });
+
+  test("handles renice with missing args", () => {
+    const state = createInitialState();
+    const next = processShellCommand(state, "renice");
+    const lastOutput = next.terminal.output[next.terminal.output.length - 1];
+    expect(lastOutput.type).toBe("error");
+  });
+
+  test("alloc populates pageTable on process", () => {
+    const state = createInitialState();
+    const pid = state.processes[0].pid;
+    const next = processShellCommand(state, `alloc ${pid} 4`);
+    const proc = next.processes.find(p => p.pid === pid);
+    expect(proc?.pageTable.length).toBeGreaterThanOrEqual(4);
+    expect(proc?.holds.length).toBeGreaterThanOrEqual(4);
+  });
+
+  test("free clears pageTable and holds", () => {
+    const state = createInitialState();
+    const pid = state.processes[0].pid;
+    let s = processShellCommand(state, `alloc ${pid} 4`);
+    s = processShellCommand(s, `free ${pid}`);
+    const proc = s.processes.find(p => p.pid === pid);
+    expect(proc?.pageTable).toEqual([]);
+    expect(proc?.holds).toEqual([]);
+  });
+
   test("handles clear command", () => {
     const state = createInitialState();
     const next = processShellCommand(state, "clear");
