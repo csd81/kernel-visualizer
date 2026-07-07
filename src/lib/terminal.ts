@@ -3,6 +3,8 @@ import { parseCommand } from "./terminal-parser";
 import { fork, kill, renice } from "./scheduler";
 import { allocateFrames, freeProcessFrames, simulatePageFault, buildPageTable } from "./memory";
 import { createFile, deleteFile, ls, df } from "./filesystem";
+import { exportState, importState, loadPreset } from "./presets";
+import type { PresetName } from "./presets";
 import { addLine } from "./terminal-parser";
 
 export function processShellCommand(state: SimState, input: string): SimState {
@@ -29,6 +31,9 @@ export function processShellCommand(state: SimState, input: string): SimState {
         "  pause                     — Pause simulation",
         "  resume                    — Resume simulation",
         "  clear                     — Clear terminal",
+        "  export-state              — Export simulation state as JSON",
+        "  import-state <json>       — Import simulation state from JSON",
+        "  load-preset <name>        — Load a preset (empty, cpu-demo, memory-pressure, disk-frag, deadlock)",
         "  help                      — Show this message",
       ].join("\n");
       output = addLine(output, helpText, "info");
@@ -149,6 +154,41 @@ export function processShellCommand(state: SimState, input: string): SimState {
     case "resume": {
       output = addLine(output, "▶ Resumed", "success");
       return { ...next, running: true, terminal: { ...next.terminal, output } };
+    }
+
+    case "export-state": {
+      const json = exportState(next);
+      // Show first 2000 chars in terminal
+      const truncated = json.length > 2000 ? json.substring(0, 2000) + "\n... (truncated)" : json;
+      output = addLine(output, truncated, "info");
+      return { ...next, terminal: { ...next.terminal, output } };
+    }
+
+    case "import-state": {
+      if (args.length === 0) return { ...next, terminal: { ...next.terminal, output: addLine(output, "Usage: import-state <json_string>", "error") } };
+      const json = args.join(" ");
+      const result = importState(json);
+      if (result.error) {
+        output = addLine(output, `Import error: ${result.error}`, "error");
+        return { ...next, terminal: { ...next.terminal, output } };
+      }
+      const restored = result.state!;
+      // Carry over terminal history and output
+      const merged = {
+        ...restored,
+        terminal: { ...restored.terminal, output: addLine(output, "State imported successfully.", "success") },
+      };
+      return merged;
+    }
+
+    case "load-preset": {
+      const valid = ["empty", "cpu-demo", "memory-pressure", "disk-frag", "deadlock"];
+      if (args.length === 0 || !valid.includes(args[0])) {
+        return { ...next, terminal: { ...next.terminal, output: addLine(output, `Usage: load-preset <${valid.join("|")}>`, "error") } };
+      }
+      const loaded = loadPreset(next, args[0] as PresetName);
+      const lines = addLine(loaded.terminal.output, `Loaded preset: ${args[0]}`, "success");
+      return { ...loaded, terminal: { ...loaded.terminal, output: lines } };
     }
 
     case "clear": {

@@ -40,8 +40,8 @@ No `export-state`, `import-state`, or `load-preset` handlers exist in `processSh
 - [x] `load-preset memory-pressure` shows ~80% used frames
 - [x] `load-preset disk-frag` shows fragmented disk blocks
 - [x] `load-preset deadlock` shows two BLOCKED processes, triggers deadlock detection
-- [ ] Import from JSON string works via terminal command (optional)
-- [ ] `export-state` terminal command (optional)
+- [x] Import from JSON string works via terminal command (optional)
+- [x] `export-state` terminal command (optional)
 
 ## Files Touched
 - `src/lib/presets.ts` — exportState, importState, loadPreset ✅
