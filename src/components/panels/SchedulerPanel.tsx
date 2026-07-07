@@ -8,7 +8,7 @@ import GanttChart from "../scheduler/GanttChart";
 import StatTile from "../shared/StatTile";
 
 export default function SchedulerPanel() {
-  const { state } = useSimulation();
+  const { state, setViewTick } = useSimulation();
   const running = state.processes.find(p => p.state === "RUNNING");
   const ready = state.processes.filter(p => p.state === "READY");
   const blocked = state.processes.filter(p => p.state === "BLOCKED");
@@ -70,7 +70,7 @@ export default function SchedulerPanel() {
         <summary className="text-[9px] lg:text-[10px] uppercase tracking-wider text-text-muted cursor-pointer hover:text-text-secondary transition-colors">
           Timeline — CPU: {cpuUtil}%
         </summary>
-        <GanttChart history={state.history} />
+        <GanttChart history={state.history} viewTick={state.viewTick} onScrub={setViewTick} />
       </details>
     </section>
   );

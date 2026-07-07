@@ -28,6 +28,7 @@ export interface TerminalState {
 export interface SimState {
   tick: number;
   running: boolean;
+  viewTick: number;       // -1 = live, 0+ = inspecting historical tick
   speed: number;
   scheduler: SchedAlgorithm;
   quantum: number;

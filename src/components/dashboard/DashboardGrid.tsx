@@ -36,7 +36,7 @@ import TerminalPanel from "../panels/TerminalPanel";
 import ErrorBoundary from "../shared/ErrorBoundary";
 
 export default function DashboardGrid() {
-  const { state, start, stop, setSpeed, loadPreset, resetSim, downloadState } = useSimulation();
+  const { state, start, stop, setSpeed, loadPreset, resetSim, downloadState, setViewTick, stepForward } = useSimulation();
 
   useKeyboardShortcuts({
     "Space": () => state.running ? stop() : start(),
@@ -51,12 +51,16 @@ export default function DashboardGrid() {
       <SimulationControls
         running={state.running}
         speed={state.speed}
+        viewTick={state.viewTick}
         onStart={start}
         onStop={stop}
         onSpeedChange={setSpeed}
         onLoadPreset={loadPreset}
         onReset={resetSim}
         onDownload={downloadState}
+        onStepForward={stepForward}
+        onStepBack={() => setViewTick(Math.max(0, (state.viewTick >= 0 ? state.viewTick : state.tick) - 1))}
+        onBackToLive={() => setViewTick(-1)}
       />
       {state.deadlockedPids.length > 0 && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2 text-sm text-red-400 flex items-center justify-between">

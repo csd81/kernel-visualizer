@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createInitialState, tick } from "@/lib/sim";
+import { createInitialState, tick, reconstructStateAt } from "@/lib/sim";
 
 describe("createInitialState", () => {
   test("creates valid initial state", () => {
@@ -48,6 +48,10 @@ describe("tick", () => {
     expect(next).not.toBe(state);
   });
 
+  test("has viewTick defaulting to -1", () => {
+    const state = createInitialState();
+    expect(state.viewTick).toBe(-1);
+  });
   test("preserves all other fields", () => {
     const state = createInitialState();
     const next = tick(state);
@@ -63,6 +67,33 @@ describe("createInitialMemoryState", () => {
     const freeCount = state.memory.frames.filter(f => f.pid === null).length;
     expect(freeCount).toBe(256);
     expect(state.memory.algorithm).toBe("first-fit");
+  });
+});
+
+describe("reconstructStateAt", () => {
+  test("returns initial state for tick 0 with no history", () => {
+    const state = createInitialState();
+    const reconstructed = reconstructStateAt(state, [], 0);
+    expect(reconstructed.tick).toBe(0);
+    expect(reconstructed.viewTick).toBe(0);
+    expect(reconstructed.running).toBe(false);
+  });
+
+  test("returns initial state for negative tick", () => {
+    const state = createInitialState();
+    const reconstructed = reconstructStateAt(state, [], -1);
+    expect(reconstructed.viewTick).toBe(-1);
+  });
+
+  test("reconstructs a terminated process from history", () => {
+    const state = createInitialState();
+    const history = [
+      { tick: 0, pid: 1, event: "scheduled" as const },
+      { tick: 10, pid: 1, event: "terminated" as const, duration: 10 },
+    ];
+    const reconstructed = reconstructStateAt(state, history, 10);
+    expect(reconstructed.processes.find(p => p.pid === 1)?.state).toBe("TERMINATED");
+    expect(reconstructed.tick).toBe(10);
   });
 });
 

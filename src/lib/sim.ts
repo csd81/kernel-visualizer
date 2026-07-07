@@ -1,4 +1,4 @@
-import type { SimState } from "@/types/sim";
+import type { SimState, HistoryEntry } from "@/types/sim";
 import type { MemoryState } from "@/types/memory";
 import type { DiskState } from "@/types/filesystem";
 import { processColor } from "./colors";
@@ -42,6 +42,7 @@ export function createInitialState(): SimState {
   return {
     tick: 0,
     running: false,
+    viewTick: -1,
     speed: 500,
     scheduler: "fcfs",
     quantum: 3,
@@ -77,6 +78,79 @@ export function createInitialState(): SimState {
     },
     deadlockedPids: [],
   };
+}
+
+/** Reconstruct SimState as it appeared at a given tick by replaying history. */
+export function reconstructStateAt(
+  initialState: SimState,
+  history: HistoryEntry[],
+  targetTick: number
+): SimState {
+  if (targetTick < 0) return { ...initialState, viewTick: -1 };
+
+  let state: SimState = {
+    ...initialState,
+    processes: initialState.processes.map(p => ({ ...p })),
+    memory: { ...initialState.memory, frames: initialState.memory.frames.map(f => ({ ...f })) },
+    disk: { ...initialState.disk, blocks: initialState.disk.blocks.map(b => ({ ...b })), inodes: initialState.disk.inodes.map(i => ({ ...i })) },
+  };
+
+  const events = history.filter(h => h.tick <= targetTick);
+
+  for (let tick = 0; tick <= targetTick; tick++) {
+    const tickEvents = events.filter(h => h.tick === tick);
+    state = { ...state, tick };
+
+    for (const event of tickEvents) {
+      switch (event.event) {
+        case "scheduled": {
+          state = {
+            ...state,
+            processes: state.processes.map(p =>
+              p.pid === event.pid
+                ? { ...p, state: "RUNNING" as const, currentQuantumTicks: 0 }
+                : p.state === "RUNNING"
+                  ? { ...p, state: "READY" as const }
+                  : p
+            ),
+            stats: { ...state.stats, contextSwitches: state.stats.contextSwitches + 1 },
+          };
+          break;
+        }
+        case "terminated": {
+          state = {
+            ...state,
+            processes: state.processes.map(p =>
+              p.pid === event.pid ? { ...p, state: "TERMINATED" as const, terminatedTick: tick } : p
+            ),
+          };
+          break;
+        }
+        case "preempted": {
+          state = {
+            ...state,
+            processes: state.processes.map(p =>
+              p.pid === event.pid
+                ? { ...p, state: "READY" as const, readyTick: tick, currentQuantumTicks: 0 }
+                : p
+            ),
+          };
+          break;
+        }
+        case "blocked": {
+          state = {
+            ...state,
+            processes: state.processes.map(p =>
+              p.pid === event.pid ? { ...p, state: "BLOCKED" as const, blockedTick: tick } : p
+            ),
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  return { ...state, viewTick: targetTick, running: false };
 }
 
 export function tick(state: SimState): SimState {

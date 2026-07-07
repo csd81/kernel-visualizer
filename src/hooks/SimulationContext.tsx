@@ -5,7 +5,10 @@ import type { SimState } from "@/types/sim";
 import type { SchedAlgorithm } from "@/types/sim";
 
 interface SimContextValue {
+  /** The state to render — either live or reconstructed when scrubbing. */
   state: SimState;
+  /** The live sim state (always the real current state). */
+  liveState: SimState;
   start: () => void;
   stop: () => void;
   setSpeed: (ms: number) => void;
@@ -17,6 +20,8 @@ interface SimContextValue {
   loadPreset: (name: "empty" | "cpu-demo" | "memory-pressure" | "disk-frag" | "deadlock") => void;
   resetSim: () => void;
   downloadState: () => void;
+  setViewTick: (tick: number) => void;
+  stepForward: () => void;
 }
 
 export const SimulationContext = createContext<SimContextValue | null>(null);

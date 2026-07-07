@@ -3,15 +3,24 @@
 interface Props {
   running: boolean;
   speed: number;
+  viewTick: number;
   onStart: () => void;
   onStop: () => void;
   onSpeedChange: (ms: number) => void;
   onLoadPreset: (name: "empty" | "cpu-demo" | "memory-pressure" | "disk-frag" | "deadlock") => void;
   onReset: () => void;
   onDownload: () => void;
+  onStepForward: () => void;
+  onStepBack: () => void;
+  onBackToLive: () => void;
 }
 
-export default function SimulationControls({ running, speed, onStart, onStop, onSpeedChange, onLoadPreset, onReset, onDownload }: Props) {
+export default function SimulationControls({
+  running, speed, viewTick, onStart, onStop, onSpeedChange,
+  onLoadPreset, onReset, onDownload, onStepForward, onStepBack, onBackToLive,
+}: Props) {
+  const isScrubbing = viewTick >= 0;
+
   return (
     <div className="flex items-center flex-wrap gap-2 lg:gap-3 px-1 lg:px-2">
       <button
@@ -20,6 +29,36 @@ export default function SimulationControls({ running, speed, onStart, onStop, on
       >
         {running ? "⏸ Pause" : "▶ Play"}
       </button>
+
+      <button
+        onClick={onStepBack}
+        disabled={isScrubbing && viewTick <= 0}
+        className="px-2 py-1.5 text-xs rounded-lg bg-white/6 border border-white/10 hover:bg-white/10 transition-colors font-mono disabled:opacity-30 disabled:cursor-not-allowed"
+        title="Step backward"
+      >
+        ⏪
+      </button>
+      <button
+        onClick={onStepForward}
+        className="px-2 py-1.5 text-xs rounded-lg bg-white/6 border border-white/10 hover:bg-white/10 transition-colors font-mono"
+        title="Step forward one tick"
+      >
+        ⏩
+      </button>
+
+      {isScrubbing && (
+        <>
+          <span className="text-[10px] text-yellow-400 font-mono">
+            📍 Viewing tick {viewTick}
+          </span>
+          <button
+            onClick={onBackToLive}
+            className="text-[10px] text-cyan-400 hover:underline font-mono"
+          >
+            ⬅ Back to Live
+          </button>
+        </>
+      )}
 
       <label className="flex items-center gap-1.5 lg:gap-2 text-[10px] lg:text-xs text-text-secondary">
         Speed
