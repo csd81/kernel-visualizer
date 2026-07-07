@@ -6,11 +6,11 @@ import { createFile, deleteFile, diskFragPct } from "@/lib/filesystem";
 import { processShellCommand } from "@/lib/terminal";
 
 describe("Resource exhaustion", () => {
-  test("fork rejects after reaching max processes", () => {
+  test("fork rejects when memory is exhausted", () => {
     let state = createInitialState();
     let lastMessage = "";
 
-    for (let i = 0; i < 1030; i++) {
+    for (let i = 0; i < 300; i++) {
       const result = fork(state, 1, 0);
       if (result.message.startsWith("Error")) {
         lastMessage = result.message;
@@ -19,8 +19,7 @@ describe("Resource exhaustion", () => {
       state = result.state;
     }
 
-    expect(lastMessage).toContain("maximum processes reached");
-    expect(state.processes.length).toBeLessThanOrEqual(1024);
+    expect(lastMessage).toContain("insufficient memory");
   });
 
   test("allocating all memory fills every frame", () => {

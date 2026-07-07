@@ -13,6 +13,12 @@ export default function SchedulerPanel() {
   const ready = state.processes.filter(p => p.state === "READY");
   const blocked = state.processes.filter(p => p.state === "BLOCKED");
 
+  // Build file count map from disk inodes
+  const fileCounts: Record<number, number> = {};
+  for (const inode of state.disk.inodes) {
+    if (inode.pid !== null) fileCounts[inode.pid] = (fileCounts[inode.pid] || 0) + 1;
+  }
+
   const cpuUtil = state.stats.cpuUtil.length > 0
     ? Math.round(state.stats.cpuUtil.reduce((a, b) => a + b, 0) / state.stats.cpuUtil.length)
     : 0;
@@ -41,7 +47,7 @@ export default function SchedulerPanel() {
           Process Table ({state.processes.length})
         </summary>
         <div className="mt-1.5">
-          <ProcessTable processes={state.processes} />
+          <ProcessTable processes={state.processes} fileCounts={fileCounts} />
         </div>
       </details>
 

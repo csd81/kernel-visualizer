@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { SimState } from "@/types/sim";
 import { createInitialState, tick as simTick } from "@/lib/sim";
 import { processShellCommand } from "@/lib/terminal";
-import { schedule } from "@/lib/scheduler";
+import { schedule, retryBlockedProcesses } from "@/lib/scheduler";
 import { detectDeadlock } from "@/lib/deadlock";
 import { loadPreset, exportState } from "@/lib/presets";
 import type { SchedAlgorithm } from "@/types/sim";
@@ -20,6 +20,7 @@ export function useSimulation() {
       let next = { ...simTick(prev) };
       next = { ...next, memory: { ...next.memory, faultFlash: false } };
       next = schedule(next);
+      next = retryBlockedProcesses(next);
       next = resolveBlockedProcesses(next);
       next = applyCleanup(next);
       // Stats

@@ -5,6 +5,7 @@ import type { Process } from "@/types/process";
 
 interface Props {
   processes: Process[];
+  fileCounts?: Record<number, number>;
 }
 
 const STATE_COLORS: Record<string, string> = {
@@ -14,7 +15,7 @@ const STATE_COLORS: Record<string, string> = {
   TERMINATED: "text-red-400",
 };
 
-function ProcessTableInner({ processes }: Props) {
+function ProcessTableInner({ processes, fileCounts = {} }: Props) {
   return (
     <table className="w-full text-[10px] lg:text-xs font-mono">
       <thead>
@@ -23,7 +24,8 @@ function ProcessTableInner({ processes }: Props) {
           <th className="text-left py-1 pr-2">State</th>
           <th className="text-left py-1 pr-2">Ticks</th>
           <th className="text-left py-1 pr-2">Pri</th>
-          <th className="text-left py-1">Mem</th>
+          <th className="text-left py-1 pr-2">Mem</th>
+          <th className="text-left py-1">Files</th>
         </tr>
       </thead>
       <tbody>
@@ -36,7 +38,8 @@ function ProcessTableInner({ processes }: Props) {
             <td className={`py-1 pr-2 ${STATE_COLORS[p.state]}`}>{p.state}</td>
             <td className="py-1 pr-2">{p.remainingTicks}/{p.totalTicks}</td>
             <td className="py-1 pr-2">{p.priority}</td>
-            <td className="py-1">{p.holds.length}</td>
+            <td className="py-1 pr-2">{p.holds.length}</td>
+            <td className="py-1">{fileCounts[p.pid] ?? 0}</td>
           </tr>
         ))}
       </tbody>

@@ -1,6 +1,7 @@
 import type { Process, ProcessState } from "@/types/process";
 import type { SimState } from "@/types/sim";
 import { processColor } from "./colors";
+import { allocateFrames, freeProcessFrames, buildPageTable } from "./memory";
 
 const MAX_PID = 1024;
 
@@ -30,6 +31,13 @@ export function createProcess(pid: number, ticks: number, priority: number, curr
 
 export function fork(state: SimState, ticks: number, priority: number): { state: SimState; message: string } {
   if (state.processes.length >= MAX_PID) return { state, message: "Error: maximum processes reached" };
+
+  // Check memory before creating
+  const freeFrames = state.memory.frames.filter(f => f.pid === null).length;
+  if (freeFrames < 1) {
+    return { state, message: "Error: insufficient memory to create process" };
+  }
+
   const pid = state.nextPid;
   const nextPidVal = (pid % MAX_PID) + 1;
   const proc = createProcess(
@@ -38,9 +46,24 @@ export function fork(state: SimState, ticks: number, priority: number): { state:
     Math.max(0, Math.min(9, isNaN(priority) ? 0 : priority)),
     state.tick
   );
+
+  // Auto-reserve 1 frame for PCB
+  const allocResult = allocateFrames(state.memory, pid, 1);
+  if (allocResult.message) {
+    return { state, message: `Error: ${allocResult.message}` };
+  }
+
+  proc.holds = [...allocResult.allocated];
+  proc.pageTable = buildPageTable(allocResult.allocated);
+
   return {
-    state: { ...state, nextPid: nextPidVal, processes: [...state.processes, proc] },
-    message: `Created PID ${proc.pid} (${proc.totalTicks} ticks, pri ${proc.priority})`,
+    state: {
+      ...state,
+      nextPid: nextPidVal,
+      processes: [...state.processes, proc],
+      memory: allocResult.memory,
+    },
+    message: `Created PID ${pid} (${proc.totalTicks} ticks, pri ${proc.priority}, 1 frame reserved)`,
   };
 }
 
@@ -49,10 +72,49 @@ export function kill(state: SimState, pid: number): { state: SimState; message: 
   if (idx === -1) return { state, message: `Error: unknown PID ${pid}` };
   const proc = state.processes[idx];
   if (proc.state === "TERMINATED") return { state, message: `Error: PID ${pid} already terminated` };
+
+  // Free memory frames held by this process
+  const memory = freeProcessFrames(state.memory, pid);
+
+  // Free any file handles owned by this process
+  const disk = {
+    ...state.disk,
+    inodes: state.disk.inodes.map(i =>
+      i.pid === pid ? { ...i, used: false, fileName: null, size: 0, blocks: [], pid: null } : i
+    ),
+    blocks: state.disk.blocks.map(b =>
+      b.pid === pid ? { ...b, used: false, pid: null, fileId: null } : b
+    ),
+  };
+
   const processes = state.processes.map(p =>
     p.pid === pid ? { ...p, state: "TERMINATED" as ProcessState, terminatedTick: state.tick } : p
   );
-  return { state: { ...state, processes }, message: `PID ${pid} terminated` };
+
+  return {
+    state: { ...state, processes, memory, disk },
+    message: `PID ${pid} terminated — freed ${proc.holds.length} frames`,
+  };
+}
+
+export function retryBlockedProcesses(state: SimState): SimState {
+  let memory = state.memory;
+  let processes = state.processes;
+
+  for (const proc of processes) {
+    if (proc.state !== "BLOCKED" || proc.waitsFor === -1) continue;
+    // Try to allocate the frame the process was waiting for
+    const result = allocateFrames(memory, proc.pid, 1);
+    if (!result.message) {
+      memory = result.memory;
+      processes = processes.map(p =>
+        p.pid === proc.pid
+          ? { ...p, state: "READY" as ProcessState, waitsFor: -1, readyTick: state.tick }
+          : p
+      );
+    }
+  }
+  return { ...state, memory, processes };
 }
 
 export function renice(state: SimState, pid: number, newPriority: number): { state: SimState; message: string } {

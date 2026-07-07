@@ -49,12 +49,11 @@ describe("fork", () => {
     expect(next.processes.find(p => p.pid === 4)?.priority).toBe(0);
   });
 
-  test("returns error at max processes", () => {
+  test("returns error when memory exhausted", () => {
     let state = createInitialState();
-    state = { ...state, nextPid: 1 }; // reset counter
-    // Fill up processes via fork
+    // Each fork reserves 1 frame; after 256 forks memory is exhausted
     let lastMsg = "";
-    for (let i = 0; i < 1030; i++) {
+    for (let i = 0; i < 300; i++) {
       const result = fork(state, 1, 0);
       if (result.message.startsWith("Error")) {
         lastMsg = result.message;
@@ -62,7 +61,7 @@ describe("fork", () => {
       }
       state = result.state;
     }
-    expect(lastMsg).toBe("Error: maximum processes reached");
+    expect(lastMsg).toContain("insufficient memory");
   });
 });
 
