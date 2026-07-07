@@ -1,6 +1,8 @@
 import type { SimState } from "@/types/sim";
 import type { MemoryState } from "@/types/memory";
 import type { DiskState } from "@/types/filesystem";
+import { processColor } from "./colors";
+import type { Process, ProcessState } from "@/types/process";
 
 export function createInitialMemoryState(): MemoryState {
   return {
@@ -26,6 +28,16 @@ export function createInitialDiskState(): DiskState {
   };
 }
 
+function createInitialProcess(pid: number, ticks: number, priority: number): Process {
+  return {
+    pid, state: "READY" as ProcessState,
+    totalTicks: ticks, remainingTicks: ticks, priority,
+    arrivalTick: 0, totalRunTicks: 0,
+    currentQuantumTicks: 0, ticksSinceRun: 0, blockedTick: 0, mlfqLevel: 0,
+    color: processColor(pid), pageTable: [], holds: [], waitsFor: -1,
+  };
+}
+
 export function createInitialState(): SimState {
   return {
     tick: 0,
@@ -35,8 +47,12 @@ export function createInitialState(): SimState {
     quantum: 3,
     agingThreshold: 20,
     ticksSinceBoost: 0,
-    nextPid: 1,
-    processes: [],
+    nextPid: 4,
+    processes: [
+      createInitialProcess(1, 10, 2),
+      createInitialProcess(2, 8, 1),
+      createInitialProcess(3, 15, 0),
+    ],
     history: [],
     memory: createInitialMemoryState(),
     disk: createInitialDiskState(),
