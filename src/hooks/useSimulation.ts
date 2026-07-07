@@ -86,6 +86,25 @@ export function useSimulation() {
     });
   }, []);
 
+  // Persist terminal history to sessionStorage
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("kv-terminal-history");
+      if (saved) {
+        const history = JSON.parse(saved);
+        if (Array.isArray(history)) {
+          setState(prev => ({ ...prev, terminal: { ...prev.terminal, history } }));
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("kv-terminal-history", JSON.stringify(state.terminal.history));
+    } catch { /* ignore quota errors */ }
+  }, [state.terminal.history]);
+
   // Interval management
   useEffect(() => {
     if (state.running) {

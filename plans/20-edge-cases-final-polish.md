@@ -78,8 +78,8 @@ No `sessionStorage` persistence for terminal history. History resets on page rel
 - [x] No console errors or warnings
 - [x] All panels handle empty/null state gracefully
 - [x] Every edge case returns a user-friendly error message
-- [ ] Focus outlines visible on keyboard navigation
-- [ ] Terminal history persists across page reloads
+- [x] Focus outlines visible on keyboard navigation
+- [x] Terminal history persists across page reloads
 
 ## Files Touched
 - `src/components/shared/ErrorBoundary.tsx` — new ✅

@@ -4,6 +4,7 @@ import { fork, kill, renice } from "./scheduler";
 import { allocateFrames, freeProcessFrames, simulatePageFault, buildPageTable } from "./memory";
 import { createFile, deleteFile, ls, df } from "./filesystem";
 import { exportState, importState, loadPreset } from "./presets";
+import { createInitialState } from "./sim";
 import type { PresetName } from "./presets";
 import { addLine } from "./terminal-parser";
 
@@ -31,6 +32,7 @@ export function processShellCommand(state: SimState, input: string): SimState {
         "  pause                     — Pause simulation",
         "  resume                    — Resume simulation",
         "  clear                     — Clear terminal",
+        "  reset-sim                 — Reset simulation to initial state",
         "  export-state              — Export simulation state as JSON",
         "  import-state <json>       — Import simulation state from JSON",
         "  load-preset <name>        — Load a preset (empty, cpu-demo, memory-pressure, disk-frag, deadlock)",
@@ -189,6 +191,12 @@ export function processShellCommand(state: SimState, input: string): SimState {
       const loaded = loadPreset(next, args[0] as PresetName);
       const lines = addLine(loaded.terminal.output, `Loaded preset: ${args[0]}`, "success");
       return { ...loaded, terminal: { ...loaded.terminal, output: lines } };
+    }
+
+    case "reset-sim": {
+      const fresh = createInitialState();
+      const lines = addLine([], "Simulation reset.", "success");
+      return { ...fresh, terminal: { ...fresh.terminal, output: lines } };
     }
 
     case "clear": {
