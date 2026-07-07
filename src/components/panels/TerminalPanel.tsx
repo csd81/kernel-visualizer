@@ -7,9 +7,10 @@ export default function TerminalPanel() {
   const { state, processCommand } = useSimulation();
 
   return (
-    <section className="rounded-xl bg-white/3 backdrop-blur-xl border border-white/6 p-3 lg:p-5
+    <section className="rounded-xl bg-white/3 backdrop-blur-xl border border-white/6 p-3 lg:p-5 transition-all duration-300
       [border-color:var(--color-accent-terminal)]/30
-      hover:[border-color:var(--color-accent-terminal)]/60 transition-colors row-span-1 lg:row-span-2 flex flex-col">
+      hover:[border-color:var(--color-accent-terminal)]/60 row-span-1 lg:row-span-2 flex flex-col"
+      style={{ boxShadow: "0 0 20px color-mix(in srgb, var(--color-accent-terminal), transparent 95%)" }}>
       <h2 className="text-[10px] lg:text-xs uppercase tracking-[0.12em] text-text-muted mb-2 lg:mb-3">
         ⌨ Terminal
       </h2>

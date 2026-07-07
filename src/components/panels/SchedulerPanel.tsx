@@ -24,9 +24,10 @@ export default function SchedulerPanel() {
     : 0;
 
   return (
-    <section className="rounded-xl bg-white/3 backdrop-blur-xl border border-white/6 p-3 lg:p-5
+    <section className="rounded-xl bg-white/3 backdrop-blur-xl border border-white/6 p-3 lg:p-5 transition-all duration-300
       [border-color:var(--color-accent-scheduler)]/30
-      hover:[border-color:var(--color-accent-scheduler)]/60 transition-colors">
+      hover:[border-color:var(--color-accent-scheduler)]/60"
+      style={{ boxShadow: "0 0 20px color-mix(in srgb, var(--color-accent-scheduler), transparent 95%)" }}>
       <h2 className="text-[10px] lg:text-xs uppercase tracking-[0.12em] text-text-muted mb-2 lg:mb-3">
         ⚡ Scheduler
       </h2>

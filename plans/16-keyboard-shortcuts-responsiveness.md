@@ -9,31 +9,24 @@ Add global keyboard shortcuts (space to pause, +/- for speed). Deep responsive p
 ## Tasks
 
 ### 1. Keyboard shortcut hook
+**Status: NOT DONE**
 
-**File: `src/hooks/useKeyboardShortcuts.ts`**
+`src/hooks/useKeyboardShortcuts.ts` does not exist. Create it:
 
 ```ts
 "use client";
-
 import { useEffect } from "react";
 
-interface ShortcutMap {
-  [key: string]: () => void;
-}
+interface ShortcutMap { [key: string]: () => void; }
 
 export function useKeyboardShortcuts(shortcuts: ShortcutMap, enabled: boolean = true) {
   useEffect(() => {
     if (!enabled) return;
     const handler = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in terminal or other inputs
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
       const key = e.key === " " ? "Space" : e.key;
-      if (shortcuts[key]) {
-        e.preventDefault();
-        shortcuts[key]();
-      }
+      if (shortcuts[key]) { e.preventDefault(); shortcuts[key](); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -41,82 +34,59 @@ export function useKeyboardShortcuts(shortcuts: ShortcutMap, enabled: boolean = 
 }
 ```
 
-### 2. Register shortcuts
+### 2. Register shortcuts in DashboardGrid
+**Status: NOT DONE**
 
-In `DashboardGrid.tsx`:
+No keyboard listener is registered anywhere. Wire the hook into `DashboardGrid.tsx`:
 
 ```tsx
 useKeyboardShortcuts({
   "Space": () => state.running ? stop() : start(),
-  "=": () => setSpeed(Math.min(2000, state.speed + 50)),
   "+": () => setSpeed(Math.min(2000, state.speed + 50)),
+  "=": () => setSpeed(Math.min(2000, state.speed + 50)),
   "-": () => setSpeed(Math.max(50, state.speed - 50)),
 });
 ```
 
-Add a hint bar below the header:
-```tsx
-<div className="text-[10px] text-text-muted text-center px-2">
-  SPACE: pause/resume  |  +/-: speed  |  Type 'help' in terminal for commands
-</div>
+### 3. Hint bar
+**Status: DONE** — Already rendered in `DashboardGrid.tsx`:
+```
+SPACE: pause/resume  |  +/-: speed  |  Type 'help' in terminal for commands
 ```
 
-### 3. Responsive layout pass
+### 4. Responsive layout pass
+**Status: MOSTLY DONE**
 
-Test and fix at 1280px, 1024px, 768px, 480px.
+- `DashboardGrid.tsx`: `grid-cols-1 lg:grid-cols-2` ✅
+- All panels: `p-3 lg:p-5`, `text-[10px] lg:text-xs` titles ✅
+- Terminal: `min-h-[200px] lg:min-h-[300px]` ✅
+- Memory frame grid (FrameGrid.tsx): always 16 columns — needs responsive cols (e.g., 8 cols on small screens)
+- Disk block grid (BlockGrid.tsx): always 16 columns — same issue
 
-**DashboardGrid.tsx**:
-```tsx
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 flex-1">
-```
+### 5. Touch-friendly targets
+**Status: PARTIALLY DONE**
 
-**Memory frame grid**: at small screens, reduce to 8 columns instead of 16 (to make frames tappable):
-```tsx
-const cols = typeof window !== "undefined" && window.innerWidth < 640 ? 8 : 16;
-```
+- Memory frames: `min-w-[16px] min-h-[16px] lg:min-w-[20px] lg:min-h-[20px]` — 16px is small for touch. Plan calls for 24px minimum.
+- Simulation controls buttons: `px-3 lg:px-4 py-1.5` with `text-xs lg:text-sm` — adequate.
+- Dropdown/inputs: no explicit `min-h` set.
 
-**Process cards**: smaller padding and font at narrow widths.
+### 6. Screen size context (optional)
+**Status: NOT DONE**
 
-**Terminal**: minimum height of 200px.
-
-### 4. Touch-friendly targets
-
-- Memory frames: minimum `24px × 24px` (`min-w-[24px] min-h-[24px]`)
-- Disk blocks: minimum `16px × 16px`
-- Buttons: minimum `36px` height, `padding: 0.5rem 1rem`
-- Dropdown/input: `min-h-[28px]`
-
-### 5. Screen size context (optional)
-
-**File: `src/hooks/useScreenSize.ts`**
-
-```ts
-export function useScreenSize(): { width: number; height: number; sm: boolean; md: boolean; lg: boolean } {
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    const handle = () => setSize({ width: window.innerWidth, height: window.innerHeight });
-    handle();
-    window.addEventListener("resize", handle);
-    return () => window.removeEventListener("resize", handle);
-  }, []);
-  return { ...size, sm: size.width < 640, md: size.width < 1024, lg: size.width >= 1024 };
-}
-```
-
-Use to conditionally shorten labels, reduce grid size, or stack stats vertically.
+`useScreenSize.ts` doesn't exist. Could be used to dynamically reduce grid columns on small screens, though the plan marks this as optional.
 
 ## Acceptance Criteria
 - [ ] Spacebar toggles pause/resume (when not typing in terminal)
 - [ ] `+` increases speed, `-` decreases speed
-- [ ] Hint bar shows available shortcuts
-- [ ] Layout stacks single-column at 768px
+- [x] Hint bar shows available shortcuts
+- [x] Layout stacks single-column below 1024px
 - [ ] Memory grid and disk grid are usable on mobile (scrollable, tappable)
 - [ ] No horizontal overflow at 480px
 
 ## Files Touched
-- `src/hooks/useKeyboardShortcuts.ts` — new
-- `src/hooks/useScreenSize.ts` — new
-- `src/components/dashboard/DashboardGrid.tsx` — register shortcuts, hint bar
-- `src/components/memory/FrameGrid.tsx` — responsive cols
-- `src/components/filesystem/BlockGrid.tsx` — responsive cols
-- `src/components/panels/*.tsx` — touch-friendly sizing pass
+- `src/hooks/useKeyboardShortcuts.ts` — new (missing)
+- `src/hooks/useScreenSize.ts` — new (missing, optional)
+- `src/components/dashboard/DashboardGrid.tsx` — register shortcuts (missing), hint bar ✅
+- `src/components/memory/FrameGrid.tsx` — responsive cols (missing)
+- `src/components/filesystem/BlockGrid.tsx` — responsive cols (missing)
+- `src/components/panels/*.tsx` — touch-friendly sizing (partial)

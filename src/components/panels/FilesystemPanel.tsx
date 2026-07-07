@@ -17,9 +17,10 @@ export default function FilesystemPanel() {
   const fragPct = diskFragPct(state.disk.blocks);
 
   return (
-    <section className="rounded-xl bg-white/3 backdrop-blur-xl border border-white/6 p-3 lg:p-5
+    <section className="rounded-xl bg-white/3 backdrop-blur-xl border border-white/6 p-3 lg:p-5 transition-all duration-300
       [border-color:var(--color-accent-filesystem)]/30
-      hover:[border-color:var(--color-accent-filesystem)]/60 transition-colors">
+      hover:[border-color:var(--color-accent-filesystem)]/60"
+      style={{ boxShadow: "0 0 20px color-mix(in srgb, var(--color-accent-filesystem), transparent 95%)" }}>
       <h2 className="text-[10px] lg:text-xs uppercase tracking-[0.12em] text-text-muted mb-2 lg:mb-3">
         💾 Filesystem
       </h2>
