@@ -13,7 +13,7 @@ const BLOCK_LABELS: Record<string, string> = { BOOT: "B", SUPERBLOCK: "S", INODE
 
 function BlockGridInner({ blocks, highlightedFile }: Props) {
   return (
-    <div className="grid grid-cols-16 gap-[2px]">
+    <div className="grid grid-cols-8 sm:grid-cols-16 gap-[2px]">
       {blocks.map(b => {
         const highlight = highlightedFile && b.fileId === highlightedFile;
         return (

@@ -62,6 +62,12 @@ body::after {
   grid-template-columns: repeat(16, 1fr);
 }
 
+@media (min-width: 640px) {
+  .sm\:grid-cols-16 {
+    grid-template-columns: repeat(16, 1fr);
+  }
+}
+
 /* Animations */
 @keyframes float-particle {
   0% { transform: translate(0, 0) scale(1); }

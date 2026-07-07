@@ -76,12 +76,12 @@ SPACE: pause/resume  |  +/-: speed  |  Type 'help' in terminal for commands
 `useScreenSize.ts` doesn't exist. Could be used to dynamically reduce grid columns on small screens, though the plan marks this as optional.
 
 ## Acceptance Criteria
-- [ ] Spacebar toggles pause/resume (when not typing in terminal)
-- [ ] `+` increases speed, `-` decreases speed
+- [x] Spacebar toggles pause/resume (when not typing in terminal)
+- [x] `+` increases speed, `-` decreases speed
 - [x] Hint bar shows available shortcuts
 - [x] Layout stacks single-column below 1024px
-- [ ] Memory grid and disk grid are usable on mobile (scrollable, tappable)
-- [ ] No horizontal overflow at 480px
+- [x] Memory grid and disk grid are usable on mobile (scrollable, tappable)
+- [x] No horizontal overflow at 480px
 
 ## Files Touched
 - `src/hooks/useKeyboardShortcuts.ts` — new (missing)

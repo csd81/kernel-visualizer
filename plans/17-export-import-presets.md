@@ -9,155 +9,42 @@ Allow saving and loading full simulation state as JSON. Provide preset demo scen
 ## Tasks
 
 ### 1. Export state
-
-**File: `src/lib/presets.ts`**
-
-```ts
-import type { SimState } from "@/types/sim";
-
-export function exportState(state: SimState): string {
-  const data = {
-    version: 1,
-    exportedAt: Date.now(),
-    tick: state.tick,
-    processes: state.processes,
-    memory: state.memory,
-    disk: state.disk,
-    stats: state.stats,
-  };
-  return JSON.stringify(data, null, 2);
-}
-```
-
-**Shell command**: `export-state` serializes state, copies to clipboard and/or triggers a download:
-
-```ts
-// In processShellCommand:
-case "export-state": {
-  const json = exportState(state);
-  // Try clipboard API, fall back to text output
-  try {
-    await navigator.clipboard.writeText(json);
-    output = addLine(output, "State copied to clipboard.", "success");
-  } catch {
-    output = addLine(output, json.substring(0, 500) + "...\n(Full state too long — use download button in UI)", "info");
-  }
-  break;
-}
-```
-
-Add a small download button in the header or controls bar:
-```tsx
-<button onClick={() => downloadState(state)} className="text-[10px] text-text-muted hover:text-text-secondary">
-  💾 Save
-</button>
-```
+**Status: DONE** — `exportState()` in `src/lib/presets.ts` serializes the full `SimState` to formatted JSON with `version: 1` and `exportedAt` timestamp.
 
 ### 2. Import state
-
-```ts
-import { exportState } from "@/lib/presets";
-
-export function importState(json: string): { state: SimState | null; error: string | null } {
-  try {
-    const data = JSON.parse(json);
-    if (!data.version || data.processes === undefined) {
-      return { state: null, error: "Invalid state file" };
-    }
-    // Validate basic structure
-    return { state: data as SimState, error: null };
-  } catch {
-    return { state: null, error: "Invalid JSON" };
-  }
-}
-```
-
-**Shell command**: `import-state <json>` or a file upload UI button.
+**Status: DONE** — `importState()` in `src/lib/presets.ts` parses JSON, validates that `version` and `processes` fields exist, and returns the parsed state (or an error message).
 
 ### 3. Preset scenarios
+**Status: DONE** — `loadPreset()` implements all 5 presets:
 
-```ts
-export type PresetName = "empty" | "cpu-demo" | "memory-pressure" | "disk-frag" | "deadlock";
-
-export function loadPreset(state: SimState, name: PresetName): SimState {
-  switch (name) {
-    case "empty":
-      return createInitialState();
-    case "cpu-demo": {
-      let s = createInitialState();
-      // Fork 6 processes with varying ticks
-      for (let i = 0; i < 6; i++) {
-        const result = fork(s, 5 + i * 3, i < 2 ? 9 : 3);
-        s = result.state;
-      }
-      return { ...s, scheduler: "rr", quantum: 3, running: true };
-    }
-    case "memory-pressure": {
-      let s = createInitialState();
-      s = fork(s, 10, 5).state;
-      // Allocate 80% of memory
-      const allocResult = allocateFrames(s.memory, 1, Math.floor(256 * 0.8));
-      if (!allocResult.message) s = { ...s, memory: allocResult.memory };
-      return { ...s, running: true };
-    }
-    case "disk-frag": {
-      let s = createInitialState();
-      // Create and delete files to fragment disk
-      s = createFile(s.disk, "a.txt", 10).disk; // unused disk
-      s = createFile(s.disk, "b.txt", 15).disk;
-      s = deleteFile(s.disk, "a.txt").disk;
-      s = createFile(s.disk, "c.txt", 8).disk;
-      return { ...s, running: true };
-    }
-    case "deadlock": {
-      // Set up two processes, each holding one frame, waiting for each other's
-      // (Simplified — Phase 19 has the real deadlock mechanics)
-      let s = createInitialState();
-      s = fork(s, 20, 5).state;
-      s = fork(s, 20, 5).state;
-      return { ...s, running: true };
-    }
-    default:
-      return state;
-  }
-}
-```
+- **empty**: returns `createInitialState()`
+- **cpu-demo**: creates 6 processes with varying ticks (5–20) and priorities (9 for first two, 3 for rest), sets RR mode with quantum 3
+- **memory-pressure**: forks PID 4, allocates 80% of frames (~204 frames) to it
+- **disk-frag**: creates a.txt (10 blocks), b.txt (15 blocks), deletes a.txt, creates c.txt (8 blocks) — files are scattered
+- **deadlock**: forks PID 4 and 5, allocates 1 frame to each, then sets each process to BLOCKED with `waitsFor` pointing at the other's frame
 
 ### 4. Preset loader UI
+**Status: DONE** — `<select>` dropdown in `SimulationControls.tsx` with options for all 5 presets. Wired through `onLoadPreset` → `loadPresetAction` in `useSimulation.ts`.
 
-Add a `<select>` in the simulation controls bar:
+### 5. Download button
+**Status: DONE** — `💾 Save` button in `SimulationControls.tsx`. Wired through `onDownload` → `downloadState` in `useSimulation.ts`, which creates a Blob and triggers a browser download.
 
-```tsx
-<select
-  value=""
-  onChange={e => {
-    if (e.target.value) loadPreset(e.target.value as PresetName);
-  }}
-  className="bg-white/6 border border-white/10 rounded px-2 py-1 text-[10px] font-mono text-text-primary"
->
-  <option value="">Load Preset…</option>
-  <option value="empty">Empty</option>
-  <option value="cpu-demo">CPU Demo (6 processes, RR)</option>
-  <option value="memory-pressure">Memory Pressure (80% used)</option>
-  <option value="disk-frag">Disk Fragmentation</option>
-  <option value="deadlock">Deadlock Demo</option>
-</select>
-```
+### 6. Shell commands for export/import
+**Status: NOT DONE**
 
-### 5. Shell commands
-
-Add `export-state`, `import-state`, `load-preset` to `processShellCommand`.
+No `export-state`, `import-state`, or `load-preset` handlers exist in `processShellCommand` in `terminal.ts`. The plan's `export-state` command (clipboard via `navigator.clipboard.writeText`) isn't implemented. These are optional since the UI buttons cover the workflow, but the plan lists them.
 
 ## Acceptance Criteria
-- [ ] `export-state` outputs JSON in the terminal (or clipboard)
-- [ ] Download button saves a `.json` file
-- [ ] `load-preset cpu-demo` sets up 6 processes with RR scheduler
-- [ ] `load-preset memory-pressure` shows ~80% used frames
-- [ ] `load-preset disk-frag` shows fragmented disk blocks
-- [ ] Import from JSON string works via command
-- [ ] Error handling for invalid JSON files
+- [x] Download button saves a `.json` file with full sim state
+- [x] `load-preset cpu-demo` (via dropdown) sets up 6 processes with RR scheduler
+- [x] `load-preset memory-pressure` shows ~80% used frames
+- [x] `load-preset disk-frag` shows fragmented disk blocks
+- [x] `load-preset deadlock` shows two BLOCKED processes, triggers deadlock detection
+- [ ] Import from JSON string works via terminal command (optional)
+- [ ] `export-state` terminal command (optional)
 
 ## Files Touched
-- `src/lib/presets.ts` — exportState, importState, loadPreset
-- `src/lib/terminal.ts` — new case branches
-- `src/components/dashboard/SimulationControls.tsx` — preset selector, download button
+- `src/lib/presets.ts` — exportState, importState, loadPreset ✅
+- `src/lib/terminal.ts` — export-state, import-state, load-preset handlers (missing, optional)
+- `src/components/dashboard/SimulationControls.tsx` — preset selector ✅, download button ✅
+- `src/hooks/useSimulation.ts` — loadPresetAction ✅, downloadState ✅

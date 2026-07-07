@@ -1,6 +1,7 @@
 "use client";
 
 import { useSimulation } from "@/hooks/SimulationContext";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import Header from "./Header";
 import SimulationControls from "./SimulationControls";
 import SchedulerPanel from "../panels/SchedulerPanel";
@@ -11,6 +12,13 @@ import ErrorBoundary from "../shared/ErrorBoundary";
 
 export default function DashboardGrid() {
   const { state, start, stop, setSpeed, loadPreset, resetSim, downloadState } = useSimulation();
+
+  useKeyboardShortcuts({
+    "Space": () => state.running ? stop() : start(),
+    "+": () => setSpeed(Math.min(2000, state.speed + 50)),
+    "=": () => setSpeed(Math.min(2000, state.speed + 50)),
+    "-": () => setSpeed(Math.max(50, state.speed - 50)),
+  });
 
   return (
     <div className="min-h-screen p-3 lg:p-5 flex flex-col gap-4">
