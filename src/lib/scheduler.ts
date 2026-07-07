@@ -2,17 +2,9 @@ import type { Process, ProcessState } from "@/types/process";
 import type { SimState } from "@/types/sim";
 import { processColor } from "./colors";
 
-let nextPid = 1;
 const MAX_PID = 1024;
 
-function getNextPid(): number {
-  const pid = nextPid;
-  nextPid = (nextPid % MAX_PID) + 1;
-  return pid;
-}
-
-export function createProcess(ticks: number, priority: number): Process {
-  const pid = getNextPid();
+export function createProcess(pid: number, ticks: number, priority: number): Process {
   return {
     pid,
     state: "READY",
@@ -36,13 +28,20 @@ export function fork(state: SimState, ticks: number, priority: number): { state:
   if (state.processes.length >= MAX_PID) {
     return { state, message: "Error: maximum processes reached" };
   }
+  if (state.nextPid === undefined) {
+    // Fallback for states without nextPid
+    return { state, message: "Error: invalid state" };
+  }
+  const pid = state.nextPid;
+  const nextPid = (pid % MAX_PID) + 1;
   const proc = createProcess(
-    Math.max(1, Math.min(100, ticks || 10)),
-    Math.max(0, Math.min(9, priority || 0))
+    pid,
+    Math.max(1, Math.min(100, isNaN(ticks) ? 10 : ticks)),
+    Math.max(0, Math.min(9, isNaN(priority) ? 0 : priority))
   );
   proc.arrivalTick = state.tick;
   return {
-    state: { ...state, processes: [...state.processes, proc] },
+    state: { ...state, nextPid, processes: [...state.processes, proc] },
     message: `Created PID ${proc.pid} (${proc.totalTicks} ticks, pri ${proc.priority})`,
   };
 }
