@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, memo } from "react";
 import type { HistoryEntry } from "@/types/sim";
 import { processColor } from "@/lib/colors";
 
@@ -10,7 +10,7 @@ interface Props {
   rowHeight?: number;
 }
 
-export default function GanttChart({ history, tickWidth = 6, rowHeight = 18 }: Props) {
+function GanttChartInner({ history, tickWidth = 6, rowHeight = 18 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const withDuration = history.filter(h => h.duration && h.duration > 0);
@@ -58,3 +58,5 @@ export default function GanttChart({ history, tickWidth = 6, rowHeight = 18 }: P
     </div>
   );
 }
+
+export default memo(GanttChartInner, (prev, next) => prev.history.length === next.history.length);

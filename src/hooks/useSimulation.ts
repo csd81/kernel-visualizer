@@ -34,6 +34,9 @@ export function useSimulation() {
         memoryPressure: [...next.stats.memoryPressure.slice(-99), Math.round(usedMem / 256 * 100)],
         diskUsage: [...next.stats.diskUsage.slice(-99), Math.round(usedDisk / 122 * 100)],
       };
+      // Cap history at 500 entries
+      if (next.history.length > 500) next.history = next.history.slice(-500);
+
       // Deadlock detection
       const deadlocked = detectDeadlock(next.processes);
       if (deadlocked.length > 0 && prev.deadlockedPids.length === 0) {

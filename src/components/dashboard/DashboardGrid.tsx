@@ -2,6 +2,31 @@
 
 import { useSimulation } from "@/hooks/SimulationContext";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useState, useEffect, useRef } from "react";
+
+function FpsCounter() {
+  const [fps, setFps] = useState(0);
+  const frames = useRef(0);
+  const lastTime = useRef(performance.now());
+
+  useEffect(() => {
+    let raf: number;
+    const tick = () => {
+      frames.current++;
+      const now = performance.now();
+      if (now - lastTime.current >= 1000) {
+        setFps(frames.current);
+        frames.current = 0;
+        lastTime.current = now;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return <span className="text-[10px] font-mono text-text-muted">{fps} FPS</span>;
+}
 import Header from "./Header";
 import SimulationControls from "./SimulationControls";
 import SchedulerPanel from "../panels/SchedulerPanel";
@@ -45,8 +70,9 @@ export default function DashboardGrid() {
         <ErrorBoundary><FilesystemPanel /></ErrorBoundary>
         <ErrorBoundary><TerminalPanel /></ErrorBoundary>
       </div>
-      <div className="text-center text-[10px] text-text-muted pb-2">
-        SPACE: pause/resume  |  +/-: speed  |  Type &apos;help&apos; in terminal for commands
+      <div className="flex items-center justify-between text-[10px] text-text-muted pb-2 px-1">
+        <span>SPACE: pause/resume  |  +/-: speed  |  Type &apos;help&apos; in terminal for commands</span>
+        <FpsCounter />
       </div>
     </div>
   );
