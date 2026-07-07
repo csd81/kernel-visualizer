@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createInitialState } from "@/lib/sim";
+import { createInitialState, tick as simTick } from "@/lib/sim";
 import { fork, kill, createProcess, scheduleFcfs } from "@/lib/scheduler";
 
 describe("createProcess", () => {
@@ -91,6 +91,24 @@ describe("kill", () => {
 });
 
 describe("scheduleFcfs", () => {
+  test("duration is set on history entries when process terminates", () => {
+    // Replicate the real app flow: tick() increments state.tick, then scheduler runs
+    let state = createInitialState();
+    for (let i = 0; i < 12; i++) {
+      state = simTick(state);      // increments state.tick
+      state = scheduleFcfs(state); // uses state.tick for history
+    }
+
+    const terminated = state.history.find(h => h.event === "terminated" && h.pid === 1);
+    expect(terminated).toBeDefined();
+
+    // PID 1's "scheduled" entry should have its duration patched
+    const scheduled = state.history.find(h => h.event === "scheduled" && h.pid === 1);
+    expect(scheduled).toBeDefined();
+    expect(scheduled!.duration).toBeGreaterThan(0);
+    // PID 1 ran for 10 ticks before terminating
+    expect(scheduled!.duration).toBe(10);
+  });
   test("picks first READY process when none running", () => {
     const state = createInitialState();
     const next = scheduleFcfs(state);

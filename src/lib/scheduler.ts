@@ -29,12 +29,7 @@ export function createProcess(pid: number, ticks: number, priority: number, curr
 // ─── Fork / Kill ─────────────────────────────────────────────────────
 
 export function fork(state: SimState, ticks: number, priority: number): { state: SimState; message: string } {
-  if (state.processes.length >= MAX_PID) {
-    return { state, message: "Error: maximum processes reached" };
-  }
-  if (state.nextPid === undefined) {
-    return { state, message: "Error: invalid state" };
-  }
+  if (state.processes.length >= MAX_PID) return { state, message: "Error: maximum processes reached" };
   const pid = state.nextPid;
   const nextPidVal = (pid % MAX_PID) + 1;
   const proc = createProcess(
@@ -66,7 +61,6 @@ function getReady(processes: Process[]): Process[] {
   return processes.filter(p => p.state === "READY");
 }
 
-/** Pick the next READY process (FIFO by readyTick). Returns null if none ready. */
 function pickupNext(processes: Process[]): number | null {
   const ready = getReady(processes);
   if (ready.length === 0) return null;
@@ -85,6 +79,17 @@ function setRunning(processes: Process[], pid: number): Process[] {
   );
 }
 
+/** Patch duration onto the most recent "scheduled" history entry for a PID. */
+function patchDuration(history: SimState["history"], pid: number, currentTick: number): SimState["history"] {
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].pid === pid && history[i].event === "scheduled") {
+      const updated = { ...history[i], duration: currentTick - history[i].tick };
+      return history.map((h, idx) => (idx === i ? updated : h));
+    }
+  }
+  return history;
+}
+
 // ─── FCFS ────────────────────────────────────────────────────────────
 
 export function scheduleFcfs(state: SimState): SimState {
@@ -100,21 +105,18 @@ export function scheduleFcfs(state: SimState): SimState {
     if (updated.remainingTicks <= 0) {
       updated.state = "TERMINATED";
       updated.terminatedTick = state.tick;
+      history = patchDuration(history, updated.pid, state.tick);
       history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
     }
-
     processes = [...processes];
     processes[runningIdx] = updated;
-
     if (updated.state !== "TERMINATED") {
       return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
     }
-    // Fall through to pick the next process
   }
 
   const nextPid = pickupNext(processes);
   if (nextPid === null) return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
-
   processes = setRunning(processes, nextPid);
   contextSwitches++;
   history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
@@ -142,17 +144,18 @@ export function scheduleRr(state: SimState): SimState {
     if (updated.remainingTicks <= 0) {
       updated.state = "TERMINATED";
       updated.terminatedTick = state.tick;
+      history = patchDuration(history, updated.pid, state.tick);
       history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
     } else if (updated.currentQuantumTicks >= state.quantum) {
       updated.state = "READY";
       updated.readyTick = state.tick;
       updated.currentQuantumTicks = 0;
+      history = patchDuration(history, updated.pid, state.tick);
       history.push({ tick: state.tick, pid: updated.pid, event: "preempted" });
     }
 
     processes = [...processes];
     processes[runningIdx] = updated;
-
     if (updated.state === "RUNNING") {
       return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
     }
@@ -160,7 +163,6 @@ export function scheduleRr(state: SimState): SimState {
 
   const nextPid = pickupNext(processes);
   if (nextPid === null) return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
-
   processes = setRunning(processes, nextPid);
   contextSwitches++;
   history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
@@ -178,14 +180,13 @@ export function schedulePriority(state: SimState): SimState {
 
   if (runningIdx !== -1) {
     const running = processes[runningIdx];
-
-    // Check if any READY process has higher priority
     const higherPrio = getReady(processes)
       .filter(p => p.priority > running.priority)
       .sort((a, b) => b.priority - a.priority || a.readyTick - b.readyTick);
 
     if (higherPrio.length > 0) {
-      // Preempt current process back to READY
+      history = patchDuration(history, running.pid, state.tick);
+      history.push({ tick: state.tick, pid: running.pid, event: "preempted" });
       processes = [...processes];
       processes[runningIdx] = {
         ...running,
@@ -193,8 +194,6 @@ export function schedulePriority(state: SimState): SimState {
         readyTick: state.tick,
         currentQuantumTicks: 0,
       };
-      history.push({ tick: state.tick, pid: running.pid, event: "preempted" });
-
       const nextPid = higherPrio[0].pid;
       processes = setRunning(processes, nextPid);
       contextSwitches++;
@@ -202,7 +201,6 @@ export function schedulePriority(state: SimState): SimState {
       return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
     }
 
-    // No preemption — decrement normally
     const updated = {
       ...running,
       remainingTicks: running.remainingTicks - 1,
@@ -211,11 +209,11 @@ export function schedulePriority(state: SimState): SimState {
     if (updated.remainingTicks <= 0) {
       updated.state = "TERMINATED";
       updated.terminatedTick = state.tick;
+      history = patchDuration(history, updated.pid, state.tick);
       history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
     }
     processes = [...processes];
     processes[runningIdx] = updated;
-
     if (updated.state !== "TERMINATED") {
       return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
     }
@@ -223,7 +221,6 @@ export function schedulePriority(state: SimState): SimState {
 
   const nextPid = pickupNext(processes);
   if (nextPid === null) return { ...state, processes, history, stats: { ...state.stats, contextSwitches } };
-
   processes = setRunning(processes, nextPid);
   contextSwitches++;
   history.push({ tick: state.tick, pid: nextPid, event: "scheduled" });
@@ -239,7 +236,6 @@ export function scheduleMlfq(state: SimState): SimState {
   let contextSwitches = state.stats.contextSwitches;
   let history = [...state.history];
 
-  // Periodic boost: every 50 ticks, reset all non-terminated processes to level 0
   let ticksSinceBoost = state.ticksSinceBoost + 1;
   if (ticksSinceBoost >= 50) {
     processes = processes.map(p => (p.state !== "TERMINATED" ? { ...p, mlfqLevel: 0 } : p));
@@ -262,30 +258,28 @@ export function scheduleMlfq(state: SimState): SimState {
     if (updated.remainingTicks <= 0) {
       updated.state = "TERMINATED";
       updated.terminatedTick = state.tick;
+      history = patchDuration(history, updated.pid, state.tick);
       history.push({ tick: state.tick, pid: updated.pid, event: "terminated" });
     } else if (updated.currentQuantumTicks >= levelQuantum) {
-      // Demote, re-queue with fresh readyTick
       updated.mlfqLevel = Math.min(2, updated.mlfqLevel + 1);
       updated.state = "READY";
       updated.readyTick = state.tick;
       updated.currentQuantumTicks = 0;
+      history = patchDuration(history, updated.pid, state.tick);
       history.push({ tick: state.tick, pid: updated.pid, event: "preempted" });
     }
 
     processes = [...processes];
     processes[runningIdx] = updated;
-
     if (updated.state === "RUNNING") {
       return { ...state, processes, ticksSinceBoost, history, stats: { ...state.stats, contextSwitches } };
     }
   }
 
-  // Pick next: highest level (lowest number) first, then FIFO by readyTick
   const ready = getReady(processes);
   if (ready.length === 0) {
     return { ...state, processes, ticksSinceBoost, history, stats: { ...state.stats, contextSwitches } };
   }
-
   const nextPid = ready.sort((a, b) => a.mlfqLevel - b.mlfqLevel || a.readyTick - b.readyTick)[0].pid;
   processes = setRunning(processes, nextPid);
   contextSwitches++;
